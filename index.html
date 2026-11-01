@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dota Coach</title>
+<style>
+  :root { --bg:#0f1115; --card:#181b22; --line:#2a2f3a; --text:#e6e8ec; --muted:#8b93a3; --ok:#4cc38a; --warn:#e5a33b; --accent:#d4553f; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-ui, sans-serif; padding:16px; max-width:1100px; margin:auto; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:0 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:12px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:12px; }
+  .grid .card { margin-bottom:0; }
+  .top { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .top img { height:48px; border-radius:6px; }
+  .hero { font-size:20px; font-weight:600; }
+  .pill { padding:2px 8px; border-radius:99px; font-size:12px; border:1px solid var(--line); color:var(--muted); }
+  .pill.live { color:var(--ok); border-color:var(--ok); }
+  .items { display:flex; flex-wrap:wrap; gap:8px; }
+  .item { width:80px; text-align:center; font-size:11px; color:var(--muted); }
+  .item img { width:80px; height:58px; object-fit:cover; border-radius:6px; border:2px solid transparent; display:block; }
+  .item.owned { opacity:.35; }
+  .item.afford img { border-color:var(--ok); }
+  .item .c { color:var(--warn); } .item .w { color:var(--ok); }
+  .next .item { width:104px; } .next .item img { width:104px; height:76px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  input, select, button, textarea { background:#0b0d11; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:6px 8px; font:inherit; }
+  button { cursor:pointer; } button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button:disabled { opacity:.5; cursor:default; }
+  .chip { background:#262b36; padding:4px 8px; border-radius:6px; display:inline-flex; gap:6px; align-items:center; }
+  .chip b { cursor:pointer; color:var(--accent); }
+  .counter { margin-bottom:10px; } .counter .why { margin-bottom:6px; } .counter .vs { color:var(--muted); }
+  .phase.now h2 { color:var(--warn); }
+  .muted { color:var(--muted); } .small { font-size:12px; }
+  .skills { display:flex; flex-wrap:wrap; gap:4px; }
+  .sk { width:44px; text-align:center; font-size:10px; color:var(--muted); }
+  .sk img { width:40px; height:40px; border-radius:4px; display:block; margin:auto; border:2px solid transparent; }
+  .sk.done { opacity:.35; } .sk.next img { border-color:var(--warn); }
+  .sk .t { width:40px; height:40px; margin:auto; border-radius:4px; background:#262b36; display:flex; align-items:center; justify-content:center; font-size:16px; }
+  .nextskill { display:flex; gap:10px; align-items:center; margin-bottom:10px; font-size:15px; }
+  .nextskill img { width:44px; height:44px; border-radius:6px; }
+  .talent { display:grid; grid-template-columns:36px 1fr 1fr; gap:6px; margin-bottom:6px; align-items:stretch; }
+  .talent .lvl { display:flex; align-items:center; justify-content:center; color:var(--warn); font-weight:600; }
+  .talent .opt { background:#11141a; border:1px solid var(--line); border-radius:6px; padding:6px; font-size:12px; }
+  .talent .opt.best { border-color:var(--ok); }
+  .advice { white-space:pre-wrap; margin-top:10px; line-height:1.5; }
+  details summary { cursor:pointer; color:var(--muted); }
+  @media (max-width:500px) { body { padding:10px; } .item { width:68px; } .item img { width:68px; height:50px; } }
+</style>
+</head>
+<body>
+  <div class="card top">
+    <img id="heroImg" hidden alt="">
+    <div style="flex:1">
+      <div class="hero" id="heroName">Niciun erou</div>
+      <div class="row"><span class="pill" id="live">offline</span><span class="muted" id="meta"></span></div>
+    </div>
+    <div class="row">
+      <select id="position"></select>
+      <select id="bracket"></select>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="margin-bottom:8px">
+      <span class="muted">Eroul meu (dacă nu ești încă în joc):</span>
+      <input list="heroList" id="heroPick" placeholder="ex: Juggernaut">
+    </div>
+    <div class="row">
+      <span class="muted">Inamici:</span>
+      <input list="heroList" id="enemyPick" placeholder="adaugă inamic + Enter">
+      <span id="enemies" class="row"></span>
+    </div>
+    <datalist id="heroList"></datalist>
+  </div>
+
+  <div class="card">
+    <h2>Coach AI</h2>
+    <div class="row">
+      <input id="question" placeholder="Întrebare opțională, ex: ce fac contra lui PA cu Desolator?" style="flex:1; min-width:200px">
+      <button class="primary" id="ask">Cere sfat</button>
+    </div>
+    <div id="advice" class="advice muted small"></div>
+  </div>
+
+  <div class="grid">
+    <div class="card next"><h2>Următorul item</h2><div class="items" id="next"><span class="muted">—</span></div></div>
+    <div class="card"><h2>Împotriva inamicilor</h2><div id="counters"></div></div>
+  </div>
+  <div style="height:12px"></div>
+  <div class="grid">
+    <div class="card"><h2>Skill build <span id="skillMeta" class="small"></span></h2><div id="skills"><span class="muted">—</span></div></div>
+    <div class="card"><h2>Talente</h2><div id="talents"><span class="muted">—</span></div></div>
+  </div>
+  <div style="height:12px"></div>
+  <div class="muted small" id="source" style="margin-bottom:8px"></div>
+  <div id="phases"></div>
+
+  <div class="card">
+    <details>
+      <summary>Setări (chei API)</summary>
+      <div class="row" style="margin-top:10px">
+        <input id="stratz" type="password" placeholder="Token STRATZ (stratz.com/api)" style="flex:1; min-width:220px">
+        <input id="anth" type="password" placeholder="Cheie API Anthropic (pt. Coach AI)" style="flex:1; min-width:220px">
+        <button id="saveKeys">Salvează</button>
+      </div>
+      <div class="small muted" id="keyStatus" style="margin-top:6px"></div>
+    </details>
+  </div>
+
+<script>
+let byName = {}, byNpc = {}, enemies = [], configLoaded = false;
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt = s => s == null ? "" : (s < 0 ? "-" : "") + Math.floor(Math.abs(s)/60) + ":" + String(Math.abs(s)%60).padStart(2,"0");
+const post = (url, body) => fetch(url, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)}).then(r => r.json());
+
+function itemEl(it) {
+  const cls = ["item", it.owned ? "owned" : "", it.affordable ? "afford" : ""].join(" ");
+  const img = it.img ? `<img src="${esc(it.img)}" alt="">` : "";
+  const wr = it.winrate != null ? ` <span class="w">${it.winrate}%</span>` : "";
+  return `<div class="${cls}" title="${esc(it.dname)}">${img}${esc(it.dname)}<br><span class="c">${it.cost || ""}</span>${wr}</div>`;
+}
+
+function renderEnemies() {
+  $("enemies").innerHTML = enemies.map(e => `<span class="chip">${esc(byNpc[e] || e)}<b data-e="${esc(e)}">×</b></span>`).join("");
+}
+$("enemies").onclick = e => {
+  if (!e.target.dataset.e) return;
+  enemies = enemies.filter(x => x !== e.target.dataset.e);
+  renderEnemies(); post("/api/enemies", {enemies}).then(refresh);
+};
+$("enemyPick").onkeydown = e => {
+  if (e.key !== "Enter") return;
+  const npc = byName[e.target.value.trim().toLowerCase()];
+  if (npc && !enemies.includes(npc) && enemies.length < 5) enemies.push(npc);
+  e.target.value = ""; renderEnemies(); post("/api/enemies", {enemies}).then(refresh);
+};
+$("heroPick").onchange = e => post("/api/hero", {hero: byName[e.target.value.trim().toLowerCase()] || null}).then(refresh);
+$("position").onchange = $("bracket").onchange = () =>
+  post("/api/config", {position: $("position").value, bracket: $("bracket").value}).then(refresh);
+$("saveKeys").onclick = () => post("/api/config", {stratz_token: $("stratz").value, anthropic_api_key: $("anth").value})
+  .then(() => { $("stratz").value = $("anth").value = ""; refresh(); });
+
+$("ask").onclick = async () => {
+  $("ask").disabled = true; $("advice").className = "advice muted small"; $("advice").textContent = "Mă gândesc…";
+  try {
+    const r = await post("/api/advice", {question: $("question").value});
+    $("advice").className = "advice" + (r.error ? " muted small" : "");
+    $("advice").textContent = r.error ? "⚠ " + r.error : r.text;
+  } catch (e) { $("advice").textContent = "⚠ Eroare de rețea"; }
+  $("ask").disabled = false;
+};
+$("question").onkeydown = e => { if (e.key === "Enter") $("ask").click(); };
+
+function renderSkills(sk) {
+  if (!sk) { $("skills").innerHTML = '<span class="muted">Nu sunt date de skill build.</span>'; $("talents").innerHTML = ""; $("skillMeta").textContent = ""; return; }
+  $("skillMeta").textContent = `· ${sk.matches} meciuri pro`;
+  let head = "";
+  if (sk.next) head = `<div class="nextskill">${sk.next.ability.img ? `<img src="${esc(sk.next.ability.img)}" alt="">` : ""}
+      <div>${sk.next.now ? "<b>Crește acum:</b>" : "La nivelul următor:"} ${esc(sk.next.ability.dname)}</div></div>`;
+  $("skills").innerHTML = head + '<div class="skills">' + sk.order.map((a, i) => {
+    const cls = ["sk", sk.spent != null && i < sk.spent ? "done" : "", sk.spent === i ? "next" : ""].join(" ");
+    const pic = a.talent ? `<div class="t">★</div>` : (a.img ? `<img src="${esc(a.img)}" alt="">` : `<div class="t">?</div>`);
+    return `<div class="${cls}" title="${esc(a.dname)}">${pic}${i + 1}</div>`;
+  }).join("") + "</div>";
+  $("talents").innerHTML = (sk.talents || []).map(t => {
+    const best = Math.max(...t.options.map(o => o.pct)) || -1;
+    return `<div class="talent"><div class="lvl">${t.level}</div>` + t.options.map(o =>
+      `<div class="opt ${o.pct === best ? "best" : ""}">${esc(o.dname)}<br><span class="muted">${o.pct}% pick${o.winrate != null ? ` · ${o.winrate}% win` : ""}</span></div>`).join("") + "</div>";
+  }).join("") || '<span class="muted">—</span>';
+}
+
+async function refresh() {
+  const s = await (await fetch("/api/state")).json();
+  if (!configLoaded) {
+    $("position").innerHTML = Object.entries(s.positions).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
+    $("bracket").innerHTML = Object.entries(s.brackets).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
+    $("position").value = s.config.position; $("bracket").value = s.config.bracket; configLoaded = true;
+  }
+  $("bracket").disabled = !s.config.has_stratz;
+  $("bracket").title = s.config.has_stratz ? "" : "Filtrul pe MMR are nevoie de token STRATZ (Setări)";
+  $("keyStatus").textContent = `STRATZ: ${s.config.has_stratz ? "configurat ✓" : "lipsă (se folosește OpenDota)"} · Coach AI: ${s.config.ai ? "activ ✓" : s.config.ai_why}`;
+  $("ask").disabled = !s.config.ai; $("ask").title = s.config.ai ? "" : s.config.ai_why;
+
+  $("live").textContent = s.live ? "LIVE din Dota" : "offline";
+  $("live").className = "pill" + (s.live ? " live" : "");
+  if (JSON.stringify(s.enemies) !== JSON.stringify(enemies)) { enemies = s.enemies; renderEnemies(); }
+  if (!s.hero) { $("heroName").textContent = "Niciun erou - intră într-un meci sau alege eroul mai jos"; $("heroImg").hidden = true; return; }
+  $("heroName").textContent = s.hero.name;
+  $("heroImg").src = s.hero.img; $("heroImg").hidden = false;
+  $("meta").textContent = s.live ? `⏱ ${fmt(s.clock)}   💰 ${s.gold ?? "?"}   Lvl ${s.level ?? "?"}   ${s.kda ? s.kda.join("/") : ""}` : "";
+
+  $("next").innerHTML = (s.next || []).map(itemEl).join("") || '<span class="muted">Nu sunt date (verifică internetul)</span>';
+  $("counters").innerHTML = (s.counters || []).map(c =>
+    `<div class="counter"><div class="why"><b>${esc(c.reason)}</b> <span class="vs">vs ${esc(c.vs.join(", "))}</span></div>
+     <div class="items">${c.items.map(itemEl).join("")}</div></div>`).join("")
+    || '<span class="muted">Adaugă eroii inamici ca să primești contra-item-e.</span>';
+  renderSkills(s.skills);
+  $("source").textContent = "Sursă item-e: " + s.source;
+  $("phases").innerHTML = (s.phases || []).map((p, i) =>
+    `<div class="card phase ${i === s.phase ? "now" : ""}"><h2>${p.label}${i === s.phase ? " · acum" : ""}</h2>
+     <div class="items">${p.items.map(itemEl).join("")}</div></div>`).join("");
+}
+
+fetch("/api/heroes").then(r => r.json()).then(list => {
+  list.forEach(h => { byName[h.name.toLowerCase()] = h.npc; byNpc[h.npc] = h.name; });
+  $("heroList").innerHTML = list.map(h => `<option value="${esc(h.name)}">`).join("");
+  refresh(); setInterval(refresh, 2000);
+});
+</script>
+</body>
+</html>

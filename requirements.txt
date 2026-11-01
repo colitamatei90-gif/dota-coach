@@ -1,0 +1,2 @@
+# Optional - doar pentru Coach AI. Restul aplicatiei merge cu Python standard.
+anthropic>=2.3

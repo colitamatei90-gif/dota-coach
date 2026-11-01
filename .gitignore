@@ -1,0 +1,6 @@
+cache/
+config.json
+build/
+dist/
+*.spec
+__pycache__/
