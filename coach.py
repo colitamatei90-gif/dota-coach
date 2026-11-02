@@ -312,3 +312,80 @@ def quick_tips(rec):
     if not rec.get("enemies"):
         lines.append("Adaugă eroii inamici ca să adaptez build-ul la ei.")
     return "\n".join(f"• {l}" for l in lines) or "Nu am încă date despre meci."
+
+
+# ------------------------------------------------------------------ build adaptat de AI
+
+# Item-e "mari" uzuale, ca AI-ul sa poata iesi si din ce e popular cand meciul o cere.
+CORE_POOL = [
+    "black_king_bar", "blink", "manta", "butterfly", "skadi", "satanic", "abyssal_blade", "greater_crit",
+    "monkey_king_bar", "bloodthorn", "silver_edge", "assault", "shivas_guard", "heart", "sphere", "aeon_disk",
+    "refresher", "octarine_core", "sheepstick", "ultimate_scepter", "travel_boots", "force_staff",
+    "glimmer_cape", "ghost", "eternal_shroud", "pipe", "crimson_guard", "lotus_orb", "blade_mail", "desolator",
+    "maelstrom", "mjollnir", "gungir", "harpoon", "disperser", "nullifier", "ethereal_blade",
+    "kaya_and_sange", "sange_and_yasha", "yasha_and_kaya", "heavens_halberd", "solar_crest", "spirit_vessel",
+    "holy_locket", "guardian_greaves", "boots_of_bearing", "arcane_boots", "phase_boots", "power_treads",
+    "tranquil_boots", "hand_of_midas", "echo_sabre", "orchid", "diffusal_blade", "radiance", "bfury",
+    "vanguard", "hurricane_pike", "wind_waker", "rod_of_atos", "overwhelming_blink", "swift_blink",
+    "arcane_blink", "devastator", "khanda", "phylactery", "pavise", "revenants_brooch", "bloodstone",
+    "mekansm", "cyclone", "veil_of_discord", "urn_of_shadows", "medallion_of_courage", "falcon_blade",
+    "wraith_band", "bracer", "null_talisman", "magic_wand", "dust", "ward_sentry", "gem", "smoke_of_deceit",
+]
+
+
+def candidates(phases, owned_all, owned_direct, role):
+    """Item-ele din care poate alege AI-ul: populare + contra-item-e + item-e mari uzuale (fara ce ai deja)."""
+    names = [it["name"] for p in phases for it in p["items"]]
+    for rule in COUNTERS.values():
+        names += rule["core"] + rule["support"] + rule.get("consumables", [])
+    names += CORE_POOL
+    has_boots = bool(owned_direct & BOOT_UPGRADES)
+    out, seen = [], set()
+    for n in names:
+        if n in seen or n in owned_all or not _known(n):
+            continue
+        if n in CONSUMABLES and n not in ("dust", "ward_sentry", "smoke_of_deceit"):
+            continue
+        if has_boots and n in BOOTS and not n.startswith("travel_boots"):
+            continue
+        it = P.Constants.items_by_name.get(n, {})
+        if P.Constants.items_by_name and not it.get("cost") and n not in ("ward_sentry",):
+            continue   # retete / item-e care nu se cumpara
+        seen.add(n)
+        out.append(n)
+    return out[:120]
+
+
+def stats_table(phases):
+    """Statisticile compacte pentru AI: item -> popularitate relativa, winrate, minut tipic."""
+    out = {}
+    for i, p in enumerate(phases):
+        top = max((it["count"] for it in p["items"]), default=0) or 1
+        for it in p["items"]:
+            row = {"faza": PHASE_NAMES[i], "popularitate": f"{round(100 * it['count'] / top)}%", "cost": it["cost"]}
+            if it.get("winrate") is not None:
+                row["winrate"] = f"{it['winrate']}%"
+            if it.get("minute") is not None:
+                row["minut_tipic"] = it["minute"]
+            out.setdefault(it["name"], row)
+    return out
+
+
+def apply_ai(plan, ai_items, gold, owned_direct, owned_all, enemies):
+    """Inlocuieste 'Cumpara acum' + 'Apoi' cu alegerile AI-ului (validate)."""
+    tags = {t for _, ts in enemy_threats(enemies) for t in ts}   # doar amenintarile din meciul asta
+    counter_items = {i for t in tags for i in COUNTERS[t]["core"] + COUNTERS[t]["support"]}
+    picked = []
+    for it in ai_items:
+        n = it["item"]
+        if n in owned_all or not _known(n) or n in {p["name"] for p in picked}:
+            continue
+        info = P.item_info(n)
+        have_cost, have_names = _component_progress(n, owned_direct)
+        missing = max(0, info["cost"] - have_cost - (gold or 0)) if gold is not None else None
+        picked.append(dict(info, reason=it["why"], kind="counter" if n in counter_items else "build",
+                           have_cost=have_cost, have_parts=have_names, missing=missing, affordable=missing == 0))
+    if not picked:
+        return False
+    plan["buy_now"], plan["after"] = picked[0], picked[1:4]
+    return True

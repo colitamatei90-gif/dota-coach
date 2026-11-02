@@ -24,6 +24,7 @@ DEFAULT_CONFIG = {
     "position": "",              # "", POSITION_1 ... POSITION_5
     "bracket": "",               # "", HERALD_GUARDIAN, CRUSADER_ARCHON, LEGEND_ANCIENT, DIVINE_IMMORTAL
     "open_browser": True,
+    "ai_build": True,            # AI-ul refac build-ul in timp real (daca exista cheie AI)
 }
 
 

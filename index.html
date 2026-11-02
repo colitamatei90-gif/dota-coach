@@ -93,6 +93,15 @@
   .mini .k.counter { background:var(--bad); } .mini .k.build { background:var(--blue); }
   .kit { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:8px; }
 
+  .aibadge { font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; padding:2px 8px; border-radius:99px;
+             background:linear-gradient(90deg, rgba(106,167,245,.25), rgba(160,110,245,.25)); color:#c9b8ff; }
+  .aibadge.busy { animation:pulse2 1.2s infinite; } @keyframes pulse2 { 50% { opacity:.45; } }
+  .aistrip { font-size:13px; color:#c9cfdb; background:rgba(120,110,245,.08); border:1px solid rgba(140,120,245,.25);
+             border-radius:8px; padding:7px 10px; margin:-2px 0 12px; }
+  .aistrip .dim { font-size:11px; }
+  .iconbtn.small { padding:3px 9px; font-size:12px; margin-left:8px; }
+  .tag.ai { background:rgba(160,110,245,.18); color:#c9b8ff; }
+
   /* ---------- faze ---------- */
   .phase { display:grid; grid-template-columns:78px 1fr; gap:10px; align-items:center; padding:6px 0; border-top:1px solid var(--line); }
   .phase:first-child { border-top:0; }
@@ -222,7 +231,9 @@
     <!-- ===== centru: ce cumpar ===== -->
     <section class="col center">
       <div class="panel" id="buyPanel">
-        <div class="ph"><h2 id="buyTitle">Cumpără acum</h2><span class="sub right" id="source"></span></div>
+        <div class="ph"><h2 id="buyTitle">Cumpără acum</h2><span class="aibadge" id="aiBadge" hidden></span>
+          <span class="sub right" id="source"></span><button class="iconbtn small" id="replan" hidden title="Cere AI-ului un build nou acum">↻ Refă</button></div>
+        <div class="aistrip" id="aiStrip" hidden></div>
         <div id="buy"></div>
         <div class="then" id="then"></div>
       </div>
@@ -275,6 +286,8 @@
           <option value="gemini">Gemini (Google) · gratuit, cu limită zilnică</option>
           <option value="anthropic">Claude (Anthropic) · plătit per întrebare</option>
         </select></label>
+      <label style="flex-direction:row; align-items:center; gap:8px; color:var(--text)">
+        <input type="checkbox" id="aiBuild" style="width:auto"> AI-ul adaptează build-ul în timp real (recomandat)</label>
       <label id="gemBox"><span>Cheie Gemini · o iei gratuit din <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>
         (te loghezi cu contul Google → „Create API key” → copiezi cheia)</span>
         <input id="gem" type="password" placeholder="lasă gol ca să păstrezi cheia actuală"></label>
@@ -326,14 +339,14 @@ $("heroName").onclick = changeHero; $("heroImg").onclick = changeHero;
 /* ---------- setari ---------- */
 $("openSettings").onclick = () => {
   $("saved").textContent = "";
-  if (last) $("provider").value = last.config.ai_provider;
+  if (last) { $("provider").value = last.config.ai_provider; $("aiBuild").checked = !last.ai_build || last.ai_build.enabled; }
   showProvider(); open("setModal");
 };
 $("position").onchange = $("bracket").onchange = () => post("/api/config", {position: $("position").value, bracket: $("bracket").value}).then(refresh);
 function showProvider() { const g = $("provider").value === "gemini"; $("gemBox").hidden = !g; $("anthBox").hidden = g; }
 $("provider").onchange = showProvider;
 $("saveKeys").onclick = () => post("/api/config", {stratz_token: $("stratz").value, gemini_api_key: $("gem").value,
-    anthropic_api_key: $("anth").value, ai_provider: $("provider").value})
+    anthropic_api_key: $("anth").value, ai_provider: $("provider").value, ai_build: $("aiBuild").checked})
   .then(() => { $("stratz").value = $("gem").value = $("anth").value = ""; $("saved").textContent = "Salvat ✓"; refresh(); });
 
 /* ---------- coach ---------- */
@@ -387,14 +400,17 @@ function renderBuy(s) {
   if (!p) return;
   if (p.mode === "start") {
     $("buyTitle").textContent = `Kit de start · ${p.kit_cost} / 600 gold`;
+    $("aiStrip").hidden = $("aiBadge").hidden = true;
     $("buy").innerHTML = `<div class="kit">${p.kit.map(i => miniEl(i)).join("")}</div>`;
     $("then").innerHTML = ""; return;
   }
   $("buyTitle").textContent = "Cumpără acum";
+  renderAi(s);
   const b = p.buy_now;
   if (!b) { $("buy").innerHTML = '<div class="empty">Nu am date de build pentru acest erou (verifică internetul).</div>'; $("then").innerHTML = ""; return; }
   const have = (b.have_cost || 0) + (s.gold || 0), pct = b.cost ? Math.min(100, Math.round(100 * have / b.cost)) : 100;
-  const kind = b.kind === "counter" ? '<span class="tag counter">contra inamici</span>' : '<span class="tag build">build</span>';
+  const kind = (p.ai ? '<span class="tag ai">AI</span>' : "") +
+    (b.kind === "counter" ? '<span class="tag counter">contra inamici</span>' : '<span class="tag build">build</span>');
   const gold = b.missing == null ? "" :
     `<div class="goldbar"><div class="${b.affordable ? "full" : ""}" style="width:${pct}%"></div></div>
      <div class="goldtxt">${b.affordable ? '<b class="ok">✓ Ai destul gold, cumpără-l!</b>' : `Îți mai trebuie <b class="gold">${b.missing}</b> gold`}
@@ -405,11 +421,33 @@ function renderBuy(s) {
   $("then").innerHTML = p.after.map(i => miniEl(i, i.kind)).join("");
 }
 
+function ago(sec) { return sec < 60 ? `acum ${sec}s` : `acum ${Math.floor(sec / 60)} min`; }
+function renderAi(s) {
+  const p = s.plan, a = s.ai_build || {};
+  $("replan").hidden = !a.ready;
+  $("aiBadge").hidden = !(p && p.ai) && !a.busy;
+  $("aiBadge").className = "aibadge" + (a.busy ? " busy" : "");
+  $("aiBadge").textContent = a.busy ? "AI recalculează…" : "adaptat de AI";
+  if (p && p.ai) {
+    $("aiStrip").hidden = false;
+    $("aiStrip").innerHTML = `🧠 ${esc(p.ai.summary || "Build adaptat la meciul tău.")}
+      <span class="dim"> · ${esc(p.ai.model || "")} · ${ago(p.ai.age)}${p.ai.stale && !a.busy ? " · se va actualiza" : ""}</span>
+      ${a.error ? `<div class="dim bad">Ultima actualizare a eșuat: ${esc(a.error)}</div>` : ""}`;
+  } else if (a.ready && a.error) {
+    $("aiStrip").hidden = false;
+    $("aiStrip").innerHTML = `<span class="bad">AI: ${esc(a.error)}</span> <span class="dim">· folosesc build-ul din statistici</span>`;
+  } else if (!a.ready && a.enabled) {
+    $("aiStrip").hidden = false;
+    $("aiStrip").innerHTML = `<span class="dim">💡 Pune o cheie Gemini gratuită în ⚙ Setări ca AI-ul să adapteze build-ul în timp real.</span>`;
+  } else $("aiStrip").hidden = true;
+}
+$("replan").onclick = () => post("/api/replan", {}).then(refresh);
+
 function renderPhases(s) {
   const labels = [["Start", "înainte de horn"], ["Early", "0–10 min"], ["Mid", "10–25 min"], ["Late", "25+ min"]];
   $("phases").innerHTML = (s.phases || []).map((p, i) => `<div class="phase ${i === s.phase ? "now" : ""}">
     <div class="lbl">${labels[i][0]}${i === s.phase ? " · acum" : ""}<small>${labels[i][1]}</small></div>
-    <div class="icons">${p.items.slice(0, 9).map(it => `<div class="ico ${it.owned ? "owned" : ""}" title="${esc(it.dname)} · ${it.cost} gold${it.winrate != null ? ` · ${it.winrate}% win` : ""}">
+    <div class="icons">${p.items.slice(0, 9).map(it => `<div class="ico ${it.owned ? "owned" : ""}" title="${esc(it.dname)} · ${it.cost} gold${it.winrate != null ? ` · ${it.winrate}% win` : ""}${it.minute != null ? ` · de obicei la min ${it.minute}` : ""}">
       ${img(it.img)}${it.winrate != null ? `<span class="wr">${it.winrate}%</span>` : ""}</div>`).join("")}</div></div>`).join("")
     || '<div class="empty">—</div>';
 }
@@ -447,6 +485,7 @@ function renderTop(s) {
 
 function renderSetup(s) {
   $("buyTitle").textContent = "Pornire";
+  $("aiStrip").hidden = $("aiBadge").hidden = $("replan").hidden = true;
   $("buy").innerHTML = `<div class="setup">
     <h3>${s.ever_live ? "Aștept următorul meci…" : "Hai să te conectăm la Dota"}</h3>
     <ol><li>Steam → Dota 2 → Properties → Launch Options: <code>-gamestateintegration</code></li>
@@ -483,7 +522,8 @@ async function refresh() {
   renderPhases(s);
   renderSkills(s.skills);
   const approx = s.config.position && s.source !== "STRATZ" ? " · poziție aproximată" : "";
-  $("source").textContent = `sursă: ${s.source.split(" ·")[0]}${approx}`;
+  const st = s.config.has_stratz && s.source !== "STRATZ" ? ` · STRATZ: ${s.stratz_status}` : "";
+  $("source").textContent = `sursă: ${s.source.split(" ·")[0]}${approx}${st}`;
 }
 
 /* ---------- aplicatia desktop: buton "mereu deasupra" ---------- */

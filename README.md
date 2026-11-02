@@ -8,6 +8,9 @@ Aplicație care rulează lângă Dota 2 și îți spune, live, **ce să cumperi 
 - **poziția**: Pos 1-5 schimbă recomandările (carry, mid, offlane, support);
 - **abilități și talente**: ce abilitate crești acum și ce talente aleg jucătorii pro;
 - **coach**: răspunde mereu cu un sfat din reguli. Cu o cheie API Anthropic răspunde la orice întrebare (Claude).
+- **build adaptat de AI în timp real** (cu cheie Gemini gratuită): la fiecare schimbare importantă (inamici,
+  item cumpărat, fază nouă) AI-ul primește statisticile și situația din meci și reface lista „Cumpără acum”,
+  cu motivul fiecărui item. Poate alege doar item-e reale, pe care nu le ai deja. Fără AI rămâne build-ul din statistici.
 
 E sigur: folosește Game State Integration, sistemul oficial Valve. Nu citește memoria jocului
 și nu desenează peste joc.
@@ -95,5 +98,5 @@ python simulate.py npc_dota_hero_juggernaut
 ## Limitări
 
 - Dota nu trimite eroii inamici jucătorilor (anti-cheat), deci îi adaugi manual.
-- Query-ul STRATZ (`providers.py` → `stratz_items`) n-a putut fi testat pe API-ul real. Dacă
-  STRATZ își schimbă schema, aplicația revine automat pe OpenDota și scrie motivul în `dota-coach.log`.
+- Query-ul STRATZ (`providers.py` → `stratz_items`) urmează formatul folosit de alte proiecte publice, dar n-a putut
+  fi testat de aici pe API-ul real. Dacă nu merge, aplicația revine pe OpenDota; starea apare lângă „sursă” și în `dota-coach.log`.

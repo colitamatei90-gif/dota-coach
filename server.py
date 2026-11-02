@@ -123,6 +123,7 @@ def recommend():
     # Item-e pe faze: STRATZ (pozitie + MMR) daca e configurat, altfel OpenDota
     items = P.stratz_items(hero["id"], CFG.get("stratz_token"), CFG.get("position"), CFG.get("bracket"))
     out["source"] = "STRATZ" if items else "OpenDota · meciuri recente, toate pozițiile"
+    out["stratz_status"] = P.STATUS["stratz"]
     if items is None:
         items = P.opendota_items(hero["id"])
     phases = []
@@ -133,14 +134,86 @@ def recommend():
             info.update(owned=name in owned, count=st["count"])
             if st.get("winrate") is not None:
                 info["winrate"] = round(100 * st["winrate"])
+            if st.get("minute") is not None:
+                info["minute"] = st["minute"]
             lst.append(info)
         phases.append({"label": PHASE_LABELS[i], "items": lst})
     out["phases"] = phases
 
-    out["plan"] = coach.make_plan(hero, phases, direct, owned, gold, phase,
-                                  enemies, CFG.get("position", ""))
+    plan = coach.make_plan(hero, phases, direct, owned, gold, phase, enemies, CFG.get("position", ""))
+    out["plan"] = plan
     out["skills"] = build_skills(hero, gsi, live)
+
+    # ---- build adaptat de AI (in fundal; pana vine, ramane planul din reguli)
+    sig = _plan_signature(hero_npc, enemies, direct, phase)
+    ai_ready = ai.available(CFG)[0] and CFG.get("ai_build", True)
+    if ai_ready and plan.get("mode") == "build":
+        _maybe_replan(sig, out, hero, phases, direct, owned, gold, phase, enemies)
+        res = AI_PLAN.get("result")
+        if res and AI_PLAN.get("hero") == hero_npc and coach.apply_ai(plan, res["items"], gold, direct, owned, enemies):
+            plan["ai"] = {"summary": res["summary"], "model": res.get("model"),
+                          "age": int(time.time() - AI_PLAN["time"]), "updating": AI_PLAN["busy"],
+                          "stale": AI_PLAN.get("sig") != sig}
+    out["ai_build"] = {"enabled": bool(CFG.get("ai_build", True)), "ready": ai_ready,
+                       "busy": AI_PLAN["busy"], "error": AI_PLAN.get("error")}
     return out
+
+
+# ---------------------------------------------------------------- AI: build in timp real
+
+AI_PLAN = {"sig": None, "result": None, "hero": None, "time": 0, "busy": False, "last_call": 0,
+           "error": None, "force": False}
+MIN_GAP = 20          # secunde intre doua apeluri automate (limitele gratuite sunt mici)
+
+
+def _plan_signature(hero_npc, enemies, owned_direct, phase):
+    """Se schimba doar la evenimente care conteaza: erou, inamici, item-e mari cumparate, faza."""
+    major = sorted(n for n in owned_direct if n not in coach.CONSUMABLES and P.item_info(n)["cost"] >= coach.CHEAP_LIMIT)
+    return (hero_npc, CFG.get("position", ""), tuple(sorted(enemies)), tuple(major), phase)
+
+
+def _maybe_replan(sig, rec, hero, phases, direct, owned, gold, phase, enemies):
+    with _lock:
+        if AI_PLAN["busy"]:
+            return
+        force = AI_PLAN["force"]
+        if not force and sig == AI_PLAN["sig"]:
+            return
+        if not force and AI_PLAN["error"] and sig == AI_PLAN.get("err_sig"):
+            return  # aceeasi situatie a dat eroare: nu insistam pana nu se schimba ceva
+        if not force and time.time() - AI_PLAN["last_call"] < MIN_GAP:
+            return
+        AI_PLAN.update(busy=True, force=False, last_call=time.time())
+
+    role = coach.role_of(CFG.get("position", ""), hero.get("roles"))
+    cands = coach.candidates(phases, owned, direct, role)
+    context = {
+        "erou": hero["localized_name"], "rol": role,
+        "pozitie": POSITIONS.get(CFG.get("position", "")), "mmr": BRACKETS.get(CFG.get("bracket", "")),
+        "timp_joc": f"{(rec.get('clock') or 0) // 60} min", "gold_acum": gold, "nivel": rec.get("level"),
+        "kda": rec.get("kda"),
+        "iteme_detinute": [P.item_info(n)["dname"] for n in sorted(direct)],
+        "inamici": [{"erou": t["vs"][0], "probleme": t["why"], "acoperit_de": t["covered"]}
+                    for t in rec["plan"].get("threats", [])],
+        "sursa_statistici": rec.get("source"),
+        "statistici_iteme": coach.stats_table(phases),
+        "propunere_din_reguli": [i["dname"] for i in ([rec["plan"]["buy_now"]] if rec["plan"].get("buy_now") else [])
+                                 + rec["plan"].get("after", [])],
+        "lista_permisa": {n: P.item_info(n)["dname"] for n in cands},
+    }
+
+    def run():
+        res = ai.plan_build(CFG, context, cands)
+        with _lock:
+            AI_PLAN["busy"] = False
+            if res.get("error"):
+                AI_PLAN.update(error=res["error"], err_sig=sig)
+                print(f"[ai-build] {res['error']}")
+            else:
+                AI_PLAN.update(result=res, sig=sig, hero=sig[0], time=time.time(), error=None)
+                print(f"[ai-build] {res.get('model')}: {', '.join(i['item'] for i in res['items'])}")
+
+    threading.Thread(target=run, daemon=True).start()
 
 
 def ai_context(rec):
@@ -249,12 +322,19 @@ class Handler(BaseHTTPRequestHandler):
                 CFG["bracket"] = data.get("bracket", "")
             if data.get("ai_provider") in ai.PROVIDER_NAMES:
                 CFG["ai_provider"] = data["ai_provider"]
+            if isinstance(data.get("ai_build"), bool):
+                CFG["ai_build"] = data["ai_build"]
+            with _lock:
+                AI_PLAN.update(error=None, err_sig=None, sig=None)   # setari noi -> build nou
             for key in ("stratz_token", "anthropic_api_key", "gemini_api_key"):
                 if data.get(key):            # gol = nu schimba
                     CFG[key] = data[key].strip()
             save_config(CFG)
         elif self.path == "/api/advice":
             return self._json(advice((data.get("question") or "")[:500]))
+        elif self.path == "/api/replan":
+            with _lock:
+                AI_PLAN.update(force=True, error=None)
         else:
             return self._json({"error": "not found"}, 404)
         self._json({"ok": True})

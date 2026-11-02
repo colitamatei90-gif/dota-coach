@@ -153,7 +153,7 @@ def _gemini_candidates(key, refresh=False):
         return names
 
 
-def _gemini(cfg, user_msg):
+def _gemini(cfg, user_msg, system=None, schema=None):
     key = _gemini_key(cfg)
     try:
         forced = (cfg.get("gemini_model") or "").strip()
@@ -166,10 +166,12 @@ def _gemini(cfg, user_msg):
         return {"error": "Cheia Gemini nu are acces la niciun model Flash"}
 
     body = {
-        "systemInstruction": {"parts": [{"text": SYSTEM}]},
+        "systemInstruction": {"parts": [{"text": system or SYSTEM}]},
         "contents": [{"role": "user", "parts": [{"text": user_msg}]}],
-        "generationConfig": {"maxOutputTokens": 8192, "temperature": 0.6},
+        "generationConfig": {"maxOutputTokens": 8192, "temperature": 0.4 if schema else 0.6},
     }
+    if schema:
+        body["generationConfig"].update(responseMimeType="application/json", responseSchema=schema)
     last = None
     for model in models[:4]:
         try:
@@ -185,11 +187,11 @@ def _gemini(cfg, user_msg):
             return {"error": _gemini_friendly(e)}
         except urllib.error.URLError:
             return {"error": "Nu mă pot conecta la Gemini (internet?)"}
-        return _gemini_text(res, model)
+        return _gemini_text(res, model, raw=bool(schema))
     return {"error": _gemini_friendly(last) if last else "Gemini nu a răspuns"}
 
 
-def _gemini_text(res, model):
+def _gemini_text(res, model, raw=False):
     fb = res.get("promptFeedback") or {}
     if fb.get("blockReason"):
         return {"error": f"Gemini a blocat cererea ({fb['blockReason']})"}
@@ -198,7 +200,8 @@ def _gemini_text(res, model):
         return {"error": "Gemini a trimis un răspuns gol"}
     parts = (cands[0].get("content") or {}).get("parts") or []
     text = "".join(p.get("text", "") for p in parts if not p.get("thought")).strip()
-    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)   # fara Markdown in fereastra
+    if not raw:
+        text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)   # fara Markdown in fereastra
     if not text:
         reason = cands[0].get("finishReason", "")
         return {"error": f"Gemini nu a dat text (motiv: {reason or 'necunoscut'})"}
@@ -218,15 +221,18 @@ def _gemini_friendly(e):
 
 # ------------------------------------------------------------------ Claude
 
-def _claude(cfg, user_msg):
+def _claude(cfg, user_msg, system=None, schema=None):
     import anthropic
     client = anthropic.Anthropic(api_key=_anthropic_key(cfg) or None, timeout=60.0)
+    output_config = {"effort": "low"}              # raspuns rapid; in meci conteaza viteza
+    if schema:
+        output_config["format"] = {"type": "json_schema", "schema": schema}
     try:
         resp = client.beta.messages.create(
             model=cfg.get("ai_model") or "claude-opus-5-5",
-            max_tokens=4000,
-            system=SYSTEM,
-            output_config={"effort": "low"},       # raspuns rapid; in meci conteaza viteza
+            max_tokens=8000,
+            system=system or SYSTEM,
+            output_config=output_config,
             betas=["server-side-fallback-2026-07-01"],
             fallbacks="default",                    # daca un model refuza, preia altul automat
             messages=[{"role": "user", "content": user_msg}],
@@ -243,3 +249,70 @@ def _claude(cfg, user_msg):
         return {"error": "Modelul a refuzat cererea"}
     text = "".join(b.text for b in resp.content if b.type == "text").strip()
     return {"text": text or "(răspuns gol)", "model": resp.model}
+
+
+# ------------------------------------------------------------------ build adaptat de AI
+
+PLAN_SYSTEM = """Esti un analist de build-uri Dota 2. In timpul meciului alegi URMATOARELE item-e pe care
+jucatorul trebuie sa le cumpere, in ordine, pe baza statisticilor actuale si a situatiei din meci.
+
+Reguli:
+- Alegi 5 item-e, doar din lista permisa. Primul = cel mai important de cumparat ACUM.
+- Nu alege item-e pe care le are deja (nici componentele lor daca are item-ul mare).
+- Un singur fel de boots. Daca are deja boots imbunatatite, nu mai alege altele (exceptie: Boots of Travel in late game).
+- Tine cont de pozitie/rol: un support nu face item-e scumpe de carry; un carry nu cumpara item-e de support.
+- Adapteaza-te la inamici: daca o amenintare nu e acoperita (ex. evasion, invizibili, burst magic), include raspunsul cand conteaza.
+- Statisticile (cat de des e cumparat, winrate, minutul tipic) sunt baza; abate-te de la ele doar cand meciul o cere si spune de ce.
+- Tine cont de timp si gold: nu propune item-e de late game la minutul 5 daca exista ceva mai urgent.
+- motiv: in romana, maximum 14 cuvinte, concret (ex. "PA are evasion; MKB iti da atacuri sigure").
+- rezumat: o propozitie in romana despre strategia de build in acest meci."""
+
+
+def _plan_schema(candidates, gemini):
+    if gemini:   # schema in formatul Gemini (subset OpenAPI)
+        return {"type": "OBJECT", "properties": {
+            "rezumat": {"type": "STRING"},
+            "iteme": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
+                "item": {"type": "STRING", "enum": candidates},
+                "motiv": {"type": "STRING"}}, "required": ["item", "motiv"]}}},
+            "required": ["rezumat", "iteme"]}
+    return {"type": "object", "additionalProperties": False, "required": ["rezumat", "iteme"], "properties": {
+        "rezumat": {"type": "string"},
+        "iteme": {"type": "array", "items": {"type": "object", "additionalProperties": False,
+                                             "required": ["item", "motiv"], "properties": {
+            "item": {"type": "string", "enum": candidates}, "motiv": {"type": "string"}}}}}}
+
+
+def plan_build(cfg, context, candidates):
+    """Intoarce {"items": [{"item", "why"}], "summary", "model"} sau {"error"}."""
+    ok, why = available(cfg)
+    if not ok:
+        return {"error": why}
+    if not candidates:
+        return {"error": "nu am item-e candidate"}
+    user = "Situatia si statisticile:\n" + json.dumps(context, ensure_ascii=False, indent=1)
+    try:
+        if provider(cfg) == "gemini":
+            res = _gemini(cfg, user, PLAN_SYSTEM, _plan_schema(candidates, True))
+        else:
+            res = _claude(cfg, user, PLAN_SYSTEM, _plan_schema(candidates, False))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"error": f"{type(e).__name__}: {e}"}
+    if res.get("error"):
+        return res
+    try:
+        data = json.loads(res["text"])
+    except ValueError:
+        return {"error": "AI-ul a trimis un JSON invalid"}
+    allowed = set(candidates)
+    items, seen = [], set()
+    for it in data.get("iteme") or []:
+        name = (it or {}).get("item")
+        if name in allowed and name not in seen:      # validam oricum, chiar daca schema garanteaza
+            seen.add(name)
+            items.append({"item": name, "why": str(it.get("motiv") or "")[:160]})
+    if not items:
+        return {"error": "AI-ul nu a ales niciun item valid"}
+    return {"items": items[:6], "summary": str(data.get("rezumat") or "")[:240], "model": res.get("model")}

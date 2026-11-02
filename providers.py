@@ -118,56 +118,65 @@ def opendota_items(hero_id):
     return out
 
 
+STATUS = {"stratz": "neconfigurat"}   # afisat in UI: ce s-a intamplat cu STRATZ
+
+
 def stratz_items(hero_id, token, position, bracket):
     """
-    Item-e pe faze filtrate pe pozitie si MMR, din STRATZ.
+    Item-e pe faze filtrate pe pozitie si MMR, din STRATZ (meciurile din ultima saptamana).
+    itemFullPurchase intoarce randuri {itemId, instance, time, matchCount, winCount}:
+    cate meciuri au cumparat item-ul (a 'instance'-a oara) in minutul 'time' si cate au castigat.
     Returneaza None daca nu merge (token gresit, schema schimbata) -> se foloseste OpenDota.
-    Daca STRATZ isi schimba schema GraphQL, aici e locul de ajustat query-ul.
     """
     if not token:
+        STATUS["stratz"] = "neconfigurat"
         return None
     args = [f"heroId: {int(hero_id)}"]
     if position:
         args.append(f"positionIds: [{position}]")
     if bracket:
         args.append(f"bracketBasicIds: [{bracket}]")
-    query = ("{ heroStats { itemFullPurchase(%s) { events { itemId time matchCount winCount } } } }"
-             % ", ".join(args))
+    query = "{ heroStats { itemFullPurchase(%s) { itemId instance time matchCount winCount } } }" % ", ".join(args)
 
     def fetch():
         res = http_json(STRATZ, {"query": query},
                         {"Authorization": f"Bearer {token}", "User-Agent": "STRATZ_API"})
         if res.get("errors"):
-            raise RuntimeError(res["errors"][0].get("message", res["errors"]))
+            raise RuntimeError(res["errors"][0].get("message", str(res["errors"]))[:200])
         return res
 
-    res = cached(f"stratz_items_{hero_id}_{position}_{bracket}", 6 * HOUR, fetch)
     try:
-        purchases = res["data"]["heroStats"]["itemFullPurchase"]
-        if isinstance(purchases, dict):
-            purchases = [purchases]
-        events = [e for p in purchases for e in (p.get("events") or [])]
-    except (TypeError, KeyError):
-        _warn_once("stratz_shape", "[stratz] raspuns neasteptat - folosesc OpenDota. "
-                                   "Verifica tokenul sau query-ul din providers.py")
-        return None
-    if not events:
+        res = cached(f"stratz2_items_{hero_id}_{position}_{bracket}", 6 * HOUR, fetch)
+    except Exception as e:
+        res = None
+    rows = ((((res or {}).get("data") or {}).get("heroStats") or {}).get("itemFullPurchase")) or []
+    if not isinstance(rows, list) or not rows:
+        STATUS["stratz"] = "eroare (vezi dota-coach.log)" if res is None else "fără date pentru acest erou/filtru"
         return None
 
-    # 'time' = minutul mediu al cumpararii (unele versiuni dau secunde)
-    times = [e.get("time") or 0 for e in events]
-    in_seconds = max(times) > 200
-    out = {k: {} for k in PHASE_KEYS}
-    for e in events:
-        name = Constants.items_by_id.get(e.get("itemId"))
-        if not name:
+    # agregam pe item (doar prima cumparare): meciuri, victorii, minutul mediu
+    agg = {}
+    for r in rows:
+        if not isinstance(r, dict) or (r.get("instance") or 0) != 0:
             continue
-        minute = (e.get("time") or 0) / (60 if in_seconds else 1)
-        key = PHASE_KEYS[0 if minute <= 0 else 1 if minute < 10 else 2 if minute < 25 else 3]
-        mc = e.get("matchCount") or 0
-        prev = out[key].get(name)
-        if not prev or mc > prev["count"]:
-            out[key][name] = {"count": mc, "winrate": (e.get("winCount") or 0) / mc if mc else None}
+        mc = r.get("matchCount") or 0
+        name = Constants.items_by_id.get(r.get("itemId"))
+        if not name or mc <= 0:
+            continue
+        a = agg.setdefault(name, {"m": 0, "w": 0, "t": 0.0})
+        a["m"] += mc
+        a["w"] += r.get("winCount") or 0
+        a["t"] += (r.get("time") or 0) * mc
+    if not agg:
+        STATUS["stratz"] = "fără date pentru acest erou/filtru"
+        return None
+
+    out = {k: {} for k in PHASE_KEYS}
+    for name, a in agg.items():
+        minute = a["t"] / a["m"]
+        key = PHASE_KEYS[0 if minute < 1 else 1 if minute < 10 else 2 if minute < 25 else 3]
+        out[key][name] = {"count": a["m"], "winrate": a["w"] / a["m"], "minute": round(minute)}
+    STATUS["stratz"] = "ok"
     return out
 
 
