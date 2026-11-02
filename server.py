@@ -256,19 +256,36 @@ class Handler(BaseHTTPRequestHandler):
         self._json({"ok": True})
 
 
-def main():
-    port = int(os.environ.get("DOTA_COACH_PORT") or CFG.get("port") or 3000)
+def get_port():
+    return int(os.environ.get("DOTA_COACH_PORT") or CFG.get("port") or 3000)
+
+
+def start(port):
+    """Porneste serverul intr-un thread. Returneaza (url, deja_pornit)."""
     print("=== Dota Coach ===")
     setup_gsi.install(port)
-    _last_load[0] = time.time()
-    P.Constants.load()
-    server = ThreadingHTTPServer(("0.0.0.0", port), Handler)
     url = f"http://localhost:{port}"
-    print(f"Ruleaza pe {url}  (pe telefon: http://<IP-ul-PC-ului>:{port})  - Ctrl+C ca sa opresti")
+    try:
+        server = ThreadingHTTPServer(("0.0.0.0", port), Handler)
+    except OSError as e:
+        print(f"[server] Portul {port} e ocupat ({e}) - probabil Dota Coach ruleaza deja")
+        return url, True
+    _last_load[0] = time.time()
+    # datele de baza se incarca in fundal, ca fereastra sa apara imediat
+    threading.Thread(target=P.Constants.load, daemon=True).start()
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    print(f"Ruleaza pe {url}  (pe telefon: http://<IP-ul-PC-ului>:{port})")
+    return url, False
+
+
+def main():
+    """Mod browser (pentru dezvoltare): python server.py"""
+    url, _ = start(get_port())
     if CFG.get("open_browser", True) and not os.environ.get("DOTA_COACH_NO_BROWSER"):
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     try:
-        server.serve_forever()
+        while True:
+            time.sleep(3600)
     except KeyboardInterrupt:
         pass
 

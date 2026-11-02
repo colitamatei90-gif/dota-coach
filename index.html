@@ -51,6 +51,7 @@
   @keyframes pulse { 50% { box-shadow:0 0 0 3px rgba(240,185,74,.15); } }
   .iconbtn { background:var(--panel3); border:1px solid var(--line2); border-radius:8px; padding:7px 10px; }
   .iconbtn:hover { border-color:var(--muted); }
+  .iconbtn.on { border-color:var(--gold); color:var(--gold); background:rgba(240,185,74,.1); }
 
   /* ---------- inamici ---------- */
   .enemy { display:grid; grid-template-columns:64px 1fr; gap:10px; align-items:center; padding:8px; border-radius:8px;
@@ -175,7 +176,7 @@
     .app { padding:6px; gap:6px; }
     .then { grid-template-columns:1fr; }
     .buy .big { width:104px; height:76px; } .buy .nm { font-size:21px; }
-    .stat { padding:0 8px; } .stat b { font-size:16px; } .inv { display:none !important; }
+    .stat { padding:0 8px; } .stat b { font-size:16px; } .inv, #pin { display:none !important; }
     .topright { width:100%; margin-left:0; } .topright select { flex:1; min-width:0; width:0; }
     .buy { grid-template-columns:1fr; } .buy .big { width:100%; max-width:200px; height:auto; aspect-ratio:11/8; }
   }
@@ -199,6 +200,7 @@
     <div class="topright">
       <select id="position" title="Poziția ta"></select>
       <select id="bracket" title="MMR-ul tău"></select>
+      <button class="iconbtn" id="pin" hidden title="Ține fereastra deasupra jocului">📌 Mereu deasupra</button>
       <button class="iconbtn" id="openSettings" title="Setări">⚙</button>
     </div>
   </header>
@@ -466,10 +468,23 @@ async function refresh() {
   $("source").textContent = `sursă: ${s.source.split(" ·")[0]}${approx}`;
 }
 
-fetch("/api/heroes").then(r => r.json()).then(list => {
-  heroes = list; list.forEach(h => { byNpc[h.npc] = h.name; imgOf[h.npc] = h.img; });
-  refresh(); setInterval(refresh, 2000);
+/* ---------- aplicatia desktop: buton "mereu deasupra" ---------- */
+function setPin(on) { $("pin").classList.toggle("on", on); $("pin").textContent = on ? "📌 Deasupra: pornit" : "📌 Mereu deasupra"; }
+window.addEventListener("pywebviewready", async () => {
+  $("pin").hidden = false;
+  setPin(await window.pywebview.api.get_on_top());
+  $("pin").onclick = async () => setPin(await window.pywebview.api.set_on_top(!$("pin").classList.contains("on")));
 });
+
+/* lista de eroi; daca serverul inca incarca datele, reincercam */
+async function loadHeroes() {
+  try {
+    const list = await (await fetch("/api/heroes")).json();
+    heroes = list; list.forEach(h => { byNpc[h.npc] = h.name; imgOf[h.npc] = h.img; });
+  } catch (e) {}
+  if (!heroes.length) setTimeout(loadHeroes, 3000);
+}
+loadHeroes().then(() => { refresh(); setInterval(refresh, 2000); });
 </script>
 </body>
 </html>

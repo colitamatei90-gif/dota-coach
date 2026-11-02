@@ -14,22 +14,31 @@ E sigur: folosește Game State Integration, sistemul oficial Valve. Nu citește 
 
 ## Instalare rapidă (.exe)
 
-1. Rulează `DotaCoach.exe` (vezi mai jos cum îl construiești). La prima pornire:
+1. Rulează `DotaCoach.exe`. Se deschide fereastra aplicației (nu mai e nevoie de browser). La prima pornire:
    - găsește singur Dota 2 și instalează config-ul GSI;
-   - creează `config.json` lângă exe;
-   - deschide pagina în browser.
+   - creează `config.json` și `dota-coach.log` lângă exe.
 2. În Steam → Dota 2 → Properties → Launch Options adaugă: `-gamestateintegration`
 3. Pornește Dota (repornește-l dacă era deschis) și intră într-un meci.
 
-Pe telefon: `http://<IP-ul-PC-ului>:3000` (aceeași rețea Wi-Fi; permite aplicația în firewall).
+Butonul **📌 Mereu deasupra** ține fereastra peste joc. E util pe un singur monitor, cu Dota în modul
+„Borderless window”. În fullscreen exclusiv, Windows nu poate afișa nimic peste joc.
+
+Când închizi fereastra, se oprește toată aplicația.
+
+Pe telefon: `http://<IP-ul-PC-ului>:3000` în browser, cât timp aplicația rulează pe PC.
+
+Fereastra folosește Microsoft Edge WebView2, preinstalat pe Windows 10 și 11. Dacă lipsește,
+aplicația se deschide în browser.
 
 ## Rulare din Python
 
 ```
-python server.py
+pip install pywebview
+python app.py        # fereastra desktop
+python server.py     # varianta in browser (pentru dezvoltare)
 ```
 
-Python 3.8+. Fără dependențe; doar pentru Coach AI: `pip install anthropic`.
+Python 3.8+. Fără pywebview, `app.py` deschide browserul. Pentru Coach AI: `pip install anthropic`.
 
 ## Construire .exe
 
@@ -68,6 +77,7 @@ python simulate.py npc_dota_hero_juggernaut
 
 ## Fișiere
 
+- `app.py`: aplicația desktop (fereastra)
 - `server.py`: serverul și starea meciului
 - `coach.py`: motorul de recomandare (plan de item-e, poziție, contra-item-e, sfaturi din reguli)
 - `providers.py`: OpenDota + STRATZ (cache în `cache/`)
@@ -75,9 +85,10 @@ python simulate.py npc_dota_hero_juggernaut
 - `setup_gsi.py`: găsește Dota și instalează config-ul GSI
 - `index.html`: interfața
 - `gamestate_integration_coach.cfg`: config-ul GSI, pentru instalare manuală
+- `icon.ico`: iconița aplicației
 
 ## Limitări
 
 - Dota nu trimite eroii inamici jucătorilor (anti-cheat), deci îi adaugi manual.
 - Query-ul STRATZ (`providers.py` → `stratz_items`) n-a putut fi testat pe API-ul real. Dacă
-  STRATZ își schimbă schema, aplicația revine automat pe OpenDota și scrie motivul în consolă.
+  STRATZ își schimbă schema, aplicația revine automat pe OpenDota și scrie motivul în `dota-coach.log`.

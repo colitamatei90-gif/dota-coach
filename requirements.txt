@@ -1,2 +1,4 @@
-# Optional - doar pentru Coach AI. Restul aplicatiei merge cu Python standard.
+# Fereastra desktop (fara ea, aplicatia se deschide in browser)
+pywebview>=5
+# Optional - doar pentru intrebarile libere din Coach AI
 anthropic>=2.3

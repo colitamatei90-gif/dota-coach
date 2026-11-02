@@ -11,9 +11,22 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install pyinstaller anthropic
-      - run: python -m PyInstaller --onefile --name DotaCoach --add-data "index.html;." --hidden-import anthropic server.py
+      - run: python -m pip install pyinstaller anthropic pywebview
+      - name: Build
+        run: >
+          python -m PyInstaller --onefile --windowed --name DotaCoach --icon icon.ico
+          --add-data "index.html;." --hidden-import anthropic --collect-all webview app.py
       - uses: actions/upload-artifact@v4
         with:
           name: DotaCoach
           path: dist/DotaCoach.exe
+      - name: Test - deschide fereastra si verifica serverul
+        shell: pwsh
+        env:
+          DOTA_COACH_SELFTEST: "1"
+        run: |
+          $p = Start-Process dist\DotaCoach.exe -PassThru
+          $null = $p.Handle
+          if (-not $p.WaitForExit(120000)) { $p.Kill(); Get-Content dist\dota-coach.log; throw "Aplicatia nu s-a inchis in 2 minute" }
+          Get-Content dist\dota-coach.log
+          if ($p.ExitCode -ne 0) { throw "Testul a esuat (cod $($p.ExitCode))" }
