@@ -5,283 +5,326 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dota Coach</title>
 <style>
-  :root { --bg:#0e1014; --card:#171a21; --card2:#1e222b; --line:#2a2f3a; --text:#e8eaee; --muted:#8b93a3;
-          --ok:#4cc38a; --warn:#e5a33b; --accent:#d4553f; --blue:#5b9cf0; }
+  :root {
+    --bg:#0b0d11; --panel:#14171e; --panel2:#1b1f28; --panel3:#232834; --line:#262b36; --line2:#323947;
+    --text:#e9ebef; --muted:#8a92a2; --dim:#5d6575;
+    --gold:#f0b94a; --ok:#4cc38a; --bad:#e2574c; --blue:#6aa7f5; --accent:#c8463a;
+    --r:10px;
+  }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; }
-  .wrap { max-width:1100px; margin:auto; padding:16px; }
-  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.09em; color:var(--muted); margin:0 0 12px; font-weight:600; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px; }
-  .grid2 { display:grid; grid-template-columns:repeat(auto-fit, minmax(330px, 1fr)); gap:14px; margin-bottom:14px; }
-  .grid2 .card { margin:0; }
-  .muted { color:var(--muted); } .small { font-size:13px; } .ok { color:var(--ok); } .warn { color:var(--warn); }
-  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-  input, select, button { background:#0b0d11; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px 10px; font:inherit; }
-  button { cursor:pointer; } button:hover { border-color:#3c4352; }
-  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
-  select.attention { border-color:var(--warn); color:var(--warn); }
+  [hidden] { display:none !important; }
+  html, body { height:100%; }
+  body { margin:0; background:radial-gradient(1200px 500px at 50% -200px, #1a1f2b 0%, var(--bg) 60%) fixed var(--bg);
+         color:var(--text); font:14px/1.4 "Segoe UI", system-ui, -apple-system, sans-serif; }
+  button, input, select { font:inherit; color:var(--text); }
+  button { cursor:pointer; }
   img.broken { visibility:hidden; }
+  .muted { color:var(--muted); } .dim { color:var(--dim); } .ok { color:var(--ok); } .gold { color:var(--gold); } .bad { color:var(--bad); }
 
-  /* header */
-  .top { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
-  .top .portrait { width:86px; height:48px; border-radius:8px; object-fit:cover; background:var(--card2); }
-  .hero { font-size:22px; font-weight:700; }
-  .pill { padding:2px 9px; border-radius:99px; font-size:12px; border:1px solid var(--line); color:var(--muted); }
-  .pill.live { color:var(--ok); border-color:var(--ok); }
-  .stats { display:flex; gap:14px; color:var(--muted); font-size:14px; flex-wrap:wrap; }
-  .stats b { color:var(--text); }
-  .push { margin-left:auto; }
+  /* ---------- schelet: un ecran, fara scroll pe pagina ---------- */
+  .app { height:100vh; display:grid; grid-template-rows:auto 1fr; gap:10px; padding:10px; }
+  .main { display:grid; grid-template-columns:minmax(250px, 23%) 1fr minmax(300px, 27%); gap:10px; min-height:0; }
+  .col { display:flex; flex-direction:column; gap:10px; min-height:0; min-width:0; }
+  .panel { background:linear-gradient(180deg, var(--panel2), var(--panel)); border:1px solid var(--line); border-radius:var(--r);
+           padding:12px; min-height:0; }
+  .panel.grow { flex:1; display:flex; flex-direction:column; }
+  .scroll { overflow:auto; min-height:0; scrollbar-width:thin; scrollbar-color:var(--line2) transparent; }
+  .ph { display:flex; align-items:center; gap:8px; margin:0 0 10px; }
+  .ph h2 { margin:0; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+  .ph .sub { font-size:12px; color:var(--dim); }
+  .ph .right { margin-left:auto; }
 
-  /* setup */
-  .steps { margin:0; padding-left:20px; } .steps li { margin:4px 0; }
-  code { background:#0b0d11; padding:1px 6px; border-radius:4px; border:1px solid var(--line); }
+  /* ---------- bara de sus ---------- */
+  .top { display:flex; align-items:center; gap:14px; padding:8px 12px; flex-wrap:wrap; min-width:0; }
+  .top .portrait { width:92px; height:52px; border-radius:8px; object-fit:cover; background:var(--panel3); cursor:pointer; }
+  .top .name { font-size:20px; font-weight:700; line-height:1.1; cursor:pointer; }
+  .pill { display:inline-flex; align-items:center; gap:5px; font-size:11px; padding:2px 8px; border-radius:99px; border:1px solid var(--line2); color:var(--muted); }
+  .pill .dot { width:7px; height:7px; border-radius:50%; background:var(--dim); }
+  .pill.live { color:var(--ok); border-color:rgba(76,195,138,.4); } .pill.live .dot { background:var(--ok); box-shadow:0 0 8px var(--ok); }
+  .stat { display:flex; flex-direction:column; align-items:flex-start; padding:0 12px; border-left:1px solid var(--line); }
+  .stat b { font-size:18px; font-weight:700; line-height:1.1; } .stat > span { font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:var(--dim); }
+  .inv { display:flex; gap:3px; padding-left:12px; border-left:1px solid var(--line); }
+  .inv img, .inv .e { width:38px; height:28px; border-radius:4px; object-fit:cover; background:var(--panel3); }
+  .topright { margin-left:auto; display:flex; gap:8px; align-items:center; }
+  select { background:var(--panel3); border:1px solid var(--line2); border-radius:8px; padding:7px 10px; }
+  select.attention { border-color:var(--gold); color:var(--gold); animation:pulse 2s infinite; }
+  @keyframes pulse { 50% { box-shadow:0 0 0 3px rgba(240,185,74,.15); } }
+  .iconbtn { background:var(--panel3); border:1px solid var(--line2); border-radius:8px; padding:7px 10px; }
+  .iconbtn:hover { border-color:var(--muted); }
 
-  /* inamici */
-  .slots { display:flex; gap:10px; flex-wrap:wrap; }
-  .slot { width:96px; text-align:center; font-size:12px; cursor:pointer; position:relative; }
-  .slot .pic { width:96px; height:54px; border-radius:8px; background:var(--card2); border:2px dashed var(--line);
-               display:flex; align-items:center; justify-content:center; font-size:26px; color:var(--muted); overflow:hidden; }
-  .slot .pic img { width:100%; height:100%; object-fit:cover; }
-  .slot.filled .pic { border:2px solid var(--accent); }
-  .slot .x { position:absolute; top:-6px; right:-6px; background:var(--accent); color:#fff; border-radius:50%;
-             width:20px; height:20px; font-size:13px; line-height:20px; display:none; }
-  .slot.filled:hover .x { display:block; }
-  .threats { margin-top:12px; display:flex; flex-direction:column; gap:6px; }
-  .threat { font-size:14px; } .threat .ans { color:var(--muted); }
+  /* ---------- inamici ---------- */
+  .enemy { display:grid; grid-template-columns:64px 1fr; gap:10px; align-items:center; padding:8px; border-radius:8px;
+           background:var(--panel3); border:1px solid transparent; position:relative; }
+  .enemy + .enemy { margin-top:6px; }
+  .enemy .pic { width:64px; height:36px; border-radius:6px; object-fit:cover; background:var(--panel); }
+  .enemy .en { font-weight:600; font-size:13px; display:flex; align-items:center; gap:6px; }
+  .enemy .why { font-size:11px; color:var(--muted); line-height:1.3; margin:2px 0 4px; }
+  .enemy .ans { display:flex; gap:4px; align-items:center; }
+  .enemy .ans img { width:32px; height:24px; border-radius:3px; object-fit:cover; }
+  .enemy .ans .covered { font-size:11px; color:var(--ok); }
+  .enemy.threat { border-color:rgba(226,87,76,.35); } .enemy.safe { border-color:rgba(76,195,138,.35); }
+  .enemy .rm { position:absolute; top:4px; right:6px; background:none; border:0; color:var(--dim); font-size:15px; padding:0 4px; }
+  .enemy .rm:hover { color:var(--bad); }
+  .add { width:100%; margin-top:6px; padding:9px; border-radius:8px; border:1px dashed var(--line2); background:transparent; color:var(--muted); text-align:left; }
+  .add:hover { border-color:var(--muted); color:var(--text); }
+  .cons { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
 
-  /* cumpara acum */
-  .buy { display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
-  .buy .big { width:132px; height:96px; border-radius:10px; object-fit:cover; background:var(--card2); border:3px solid var(--line); }
-  .buy .big.afford { border-color:var(--ok); }
-  .buy .name { font-size:24px; font-weight:700; }
-  .reason { color:var(--muted); font-size:14px; }
-  .tag { display:inline-block; font-size:11px; padding:1px 7px; border-radius:99px; margin-right:6px; vertical-align:2px; }
-  .tag.counter { background:rgba(212,85,63,.18); color:#f08a77; } .tag.build { background:rgba(91,156,240,.15); color:var(--blue); }
-  .bar { height:8px; background:#0b0d11; border-radius:99px; overflow:hidden; margin:8px 0 4px; max-width:340px; }
-  .bar div { height:100%; background:var(--warn); } .bar div.full { background:var(--ok); }
-  .then { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:10px; margin-top:16px; }
-  .mini { display:flex; gap:10px; align-items:center; background:var(--card2); border-radius:10px; padding:8px; }
-  .mini img { width:64px; height:46px; border-radius:6px; object-fit:cover; flex-shrink:0; }
-  .mini .n { font-weight:600; font-size:14px; } .mini .reason { font-size:12px; }
-  .kit { display:flex; gap:10px; flex-wrap:wrap; }
+  /* ---------- cumpara acum ---------- */
+  .buy { display:grid; grid-template-columns:auto 1fr; gap:16px; align-items:center; }
+  .buy .big { width:150px; height:110px; border-radius:10px; object-fit:cover; background:var(--panel3); border:3px solid var(--line2); }
+  .buy .big.afford { border-color:var(--ok); box-shadow:0 0 22px rgba(76,195,138,.25); }
+  .buy .nm { font-size:28px; font-weight:800; letter-spacing:-.01em; line-height:1.1; }
+  .buy .cost { font-size:15px; color:var(--gold); font-weight:600; margin-left:6px; }
+  .why { font-size:13px; color:var(--muted); margin-top:4px; }
+  .tag { display:inline-block; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; padding:2px 7px; border-radius:99px; margin-right:6px; vertical-align:1px; }
+  .tag.counter { background:rgba(226,87,76,.16); color:#f2897f; } .tag.build { background:rgba(106,167,245,.14); color:var(--blue); }
+  .goldbar { height:10px; background:#0a0c10; border-radius:99px; overflow:hidden; margin:10px 0 5px; max-width:420px; border:1px solid var(--line); }
+  .goldbar div { height:100%; background:linear-gradient(90deg, #b98326, var(--gold)); transition:width .4s; }
+  .goldbar div.full { background:linear-gradient(90deg, #2e9a69, var(--ok)); }
+  .goldtxt { font-size:13px; }
+  .then { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:12px; }
+  .mini { display:flex; gap:8px; align-items:center; background:var(--panel3); border-radius:8px; padding:6px; min-width:0; }
+  .mini img { width:56px; height:40px; border-radius:5px; object-fit:cover; flex-shrink:0; background:var(--panel); }
+  .mini .t { min-width:0; } .mini .n { font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mini .n .c { color:var(--gold); font-weight:500; font-size:12px; }
+  .mini .r { font-size:11px; color:var(--muted); line-height:1.25; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .mini .k { width:4px; align-self:stretch; border-radius:2px; flex-shrink:0; }
+  .mini .k.counter { background:var(--bad); } .mini .k.build { background:var(--blue); }
+  .kit { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:8px; }
 
-  /* skill */
-  .nextskill { display:flex; gap:12px; align-items:center; margin-bottom:12px; font-size:17px; }
-  .nextskill img { width:52px; height:52px; border-radius:8px; border:2px solid var(--warn); }
-  .skills { display:flex; flex-wrap:wrap; gap:4px; }
-  .sk { width:38px; text-align:center; font-size:10px; color:var(--muted); }
-  .sk img, .sk .t { width:34px; height:34px; border-radius:4px; display:block; margin:auto; border:2px solid transparent; }
-  .sk .t { background:var(--card2); display:flex; align-items:center; justify-content:center; font-size:14px; color:var(--warn); }
-  .sk.done { opacity:.3; } .sk.next img, .sk.next .t { border-color:var(--warn); }
-  .talent { display:grid; grid-template-columns:32px 1fr 1fr; gap:6px; margin-bottom:6px; }
-  .talent .lvl { display:flex; align-items:center; justify-content:center; color:var(--warn); font-weight:700; }
-  .talent .opt { background:#11141a; border:1px solid var(--line); border-radius:6px; padding:6px 8px; font-size:12px; }
-  .talent .opt.best { border-color:var(--ok); }
+  /* ---------- faze ---------- */
+  .phase { display:grid; grid-template-columns:78px 1fr; gap:10px; align-items:center; padding:6px 0; border-top:1px solid var(--line); }
+  .phase:first-child { border-top:0; }
+  .phase .lbl { font-size:12px; font-weight:600; color:var(--muted); line-height:1.2; }
+  .phase .lbl small { display:block; font-weight:400; color:var(--dim); font-size:11px; }
+  .phase.now .lbl { color:var(--gold); }
+  .phase.now { background:linear-gradient(90deg, rgba(240,185,74,.07), transparent); border-radius:6px; }
+  .icons { display:flex; flex-wrap:wrap; gap:5px; }
+  .ico { position:relative; width:50px; }
+  .ico img, .ico .ph-e { width:50px; height:36px; border-radius:4px; object-fit:cover; display:block; background:var(--panel3); }
+  .ico .wr { position:absolute; bottom:1px; right:2px; font-size:10px; font-weight:700; color:#fff; text-shadow:0 0 3px #000, 0 0 3px #000; }
+  .ico.owned img { opacity:.25; } .ico.owned::after { content:"✓"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--ok); font-weight:800; font-size:18px; }
 
-  /* coach */
-  .chips { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
-  .chips button { font-size:13px; padding:5px 10px; border-radius:99px; }
-  .answer { white-space:pre-wrap; margin-top:12px; line-height:1.6; }
-  .note { margin-top:8px; font-size:12px; color:var(--muted); }
+  @media (min-height:950px) and (min-width:1001px) {
+    .ico { width:62px; } .ico img, .ico .ph-e { width:62px; height:46px; }
+    .buy .big { width:176px; height:128px; } .buy .nm { font-size:32px; }
+    .phase { padding:9px 0; }
+  }
 
-  /* faze */
-  details > summary { cursor:pointer; color:var(--muted); font-size:14px; }
-  .phase { margin-top:12px; } .phase h3 { font-size:13px; color:var(--muted); margin:0 0 6px; font-weight:600; }
-  .phase.now h3 { color:var(--warn); }
-  .items { display:flex; flex-wrap:wrap; gap:8px; }
-  .item { width:72px; text-align:center; font-size:11px; color:var(--muted); }
-  .item img { width:72px; height:52px; border-radius:6px; object-fit:cover; display:block; background:var(--card2); }
-  .item.owned { opacity:.3; }
+  /* ---------- abilitati ---------- */
+  .nextskill { display:flex; gap:12px; align-items:center; background:var(--panel3); border-radius:8px; padding:8px; margin-bottom:10px; }
+  .nextskill .star { width:48px; height:48px; border-radius:7px; border:2px solid var(--gold); background:var(--panel); display:flex; align-items:center; justify-content:center; color:var(--gold); font-size:22px; flex-shrink:0; }
+  .nextskill img { width:48px; height:48px; border-radius:7px; border:2px solid var(--gold); background:var(--panel); }
+  .nextskill .big { font-size:16px; font-weight:700; } .nextskill .lab { font-size:11px; text-transform:uppercase; letter-spacing:.1em; }
+  .skills { display:grid; grid-template-columns:repeat(9, 1fr); gap:3px; }
+  .sk { text-align:center; font-size:9px; color:var(--dim); }
+  .sk img, .sk .t { width:100%; aspect-ratio:1; border-radius:4px; display:block; border:2px solid transparent; background:var(--panel3); }
+  .sk .t { display:flex; align-items:center; justify-content:center; color:var(--gold); font-size:13px; }
+  .sk.done { opacity:.28; } .sk.next img, .sk.next .t { border-color:var(--gold); }
+  .talents { margin-top:10px; display:flex; flex-direction:column; gap:4px; }
+  .talent { display:grid; grid-template-columns:28px 1fr 1fr; gap:4px; }
+  .talent .lv { display:flex; align-items:center; justify-content:center; font-weight:800; color:var(--gold); font-size:13px; }
+  .talent .o { background:var(--panel3); border:1px solid transparent; border-radius:6px; padding:4px 7px; font-size:11px; line-height:1.25; }
+  .talent .o.best { border-color:rgba(76,195,138,.5); }
+  .talent .o .p { color:var(--dim); font-size:10px; }
 
-  /* modal */
-  .modal { position:fixed; inset:0; background:rgba(0,0,0,.7); display:none; align-items:flex-start; justify-content:center; padding:24px 12px; z-index:10; }
+  /* ---------- coach ---------- */
+  .chips { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:8px; }
+  .chips button { background:var(--panel3); border:1px solid var(--line2); border-radius:99px; padding:4px 10px; font-size:12px; }
+  .chips button:hover { border-color:var(--muted); }
+  .askrow { display:flex; gap:6px; }
+  .askrow input { flex:1; min-width:0; background:var(--bg); border:1px solid var(--line2); border-radius:8px; padding:7px 10px; }
+  .primary { background:var(--accent); border:1px solid var(--accent); border-radius:8px; padding:7px 14px; font-weight:700; color:#fff; }
+  .primary:disabled { opacity:.5; }
+  .answer { white-space:pre-wrap; line-height:1.55; font-size:13px; margin-top:10px; flex:1; }
+  .note { font-size:11px; color:var(--dim); margin-top:6px; }
+
+  /* ---------- gol / pornire ---------- */
+  .empty { color:var(--dim); font-size:13px; }
+  .setup { display:flex; flex-direction:column; justify-content:center; height:100%; gap:10px; max-width:520px; }
+  .setup h3 { margin:0; font-size:20px; }
+  .setup ol { margin:0; padding-left:20px; color:var(--muted); } .setup li { margin:6px 0; }
+  code { white-space:nowrap; background:var(--bg); padding:1px 6px; border-radius:4px; border:1px solid var(--line2); color:var(--text); }
+  .btn { background:var(--panel3); border:1px solid var(--line2); border-radius:8px; padding:8px 14px; }
+
+  /* ---------- modale ---------- */
+  .modal { position:fixed; inset:0; background:rgba(0,0,0,.72); display:none; align-items:flex-start; justify-content:center; padding:40px 12px; z-index:10; }
   .modal.open { display:flex; }
-  .modal .box { background:var(--card); border:1px solid var(--line); border-radius:12px; width:100%; max-width:820px; max-height:90vh; display:flex; flex-direction:column; }
-  .modal .head { padding:14px; display:flex; gap:10px; border-bottom:1px solid var(--line); }
-  .modal .head input { flex:1; font-size:16px; }
-  .heroes { padding:14px; overflow:auto; display:grid; grid-template-columns:repeat(auto-fill, minmax(92px, 1fr)); gap:8px; }
-  .hpick { cursor:pointer; text-align:center; font-size:11px; color:var(--muted); border-radius:8px; padding:4px; }
-  .hpick:hover, .hpick.sel { background:var(--card2); color:var(--text); }
-  .hpick img { width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:6px; display:block; background:var(--card2); }
-  .hpick.taken { opacity:.25; pointer-events:none; }
+  .box { background:var(--panel); border:1px solid var(--line2); border-radius:12px; width:100%; max-width:860px; max-height:88vh; display:flex; flex-direction:column; }
+  .box .head { padding:12px; display:flex; gap:8px; border-bottom:1px solid var(--line); align-items:center; }
+  .box .head input { flex:1; font-size:16px; background:var(--bg); border:1px solid var(--line2); border-radius:8px; padding:9px 12px; }
+  .heroes { padding:12px; display:grid; grid-template-columns:repeat(auto-fill, minmax(96px, 1fr)); gap:6px; }
+  .hp { cursor:pointer; text-align:center; font-size:11px; color:var(--muted); border-radius:8px; padding:4px; }
+  .hp:hover { background:var(--panel3); color:var(--text); }
+  .hp img { width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:6px; display:block; background:var(--panel3); }
+  .hp.taken { opacity:.2; pointer-events:none; }
+  .settings { padding:16px; display:flex; flex-direction:column; gap:12px; }
+  .settings label { font-size:12px; color:var(--muted); display:flex; flex-direction:column; gap:4px; }
+  .settings input { background:var(--bg); border:1px solid var(--line2); border-radius:8px; padding:8px 10px; }
+  .settings a { color:var(--blue); }
 
-  @media (max-width:520px) { .wrap { padding:10px; } .buy .big { width:104px; height:76px; } .buy .name { font-size:20px; }
-    .slot, .slot .pic { width:62px; } .slot .pic { height:36px; } .push { margin-left:0; width:100%; } .push select { flex:1; } }
+  /* ---------- ecrane mici: coloanele se aseaza una sub alta ---------- */
+  @media (max-width:1000px), (max-height:620px) {
+    .app { height:auto; min-height:100vh; }
+    .main { grid-template-columns:minmax(0, 1fr); }
+    .panel.grow { flex:none; }
+    .scroll { overflow:visible; }
+    .col.center { order:-1; }
+  }
+  @media (max-width:560px) {
+    .app { padding:6px; gap:6px; }
+    .then { grid-template-columns:1fr; }
+    .buy .big { width:104px; height:76px; } .buy .nm { font-size:21px; }
+    .stat { padding:0 8px; } .stat b { font-size:16px; } .inv { display:none !important; }
+    .topright { width:100%; margin-left:0; } .topright select { flex:1; min-width:0; width:0; }
+    .buy { grid-template-columns:1fr; } .buy .big { width:100%; max-width:200px; height:auto; aspect-ratio:11/8; }
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="app">
 
-  <!-- header -->
-  <div class="card top">
-    <img class="portrait" id="heroImg" alt="" hidden onerror="this.classList.add('broken')" onload="this.classList.remove('broken')">
+  <!-- ===== bara de sus ===== -->
+  <header class="panel top">
+    <img class="portrait" id="heroImg" alt="" hidden onerror="this.classList.add('broken')" onload="this.classList.remove('broken')" title="Schimbă eroul">
     <div>
-      <div class="row"><span class="hero" id="heroName">Dota Coach</span><span class="pill" id="live">aștept Dota</span></div>
-      <div class="stats" id="stats"></div>
-    </div>
-    <div class="row push">
-      <select id="position" title="Poziția ta în meci"></select>
-      <select id="bracket" title="MMR-ul tău"></select>
-    </div>
-  </div>
-
-  <!-- setup: doar pana vine primul semnal de la Dota -->
-  <div class="card" id="setup" hidden>
-    <h2>Pornire</h2>
-    <ol class="steps">
-      <li>În Steam → Dota 2 → Properties → Launch Options pune <code>-gamestateintegration</code></li>
-      <li>Pornește Dota (repornește-l dacă era deschis) și intră într-un meci sau în demo hero</li>
-      <li>Pagina se actualizează singură când jocul începe să trimită date</li>
-    </ol>
-    <div class="row" style="margin-top:12px"><span class="muted small">Sau vezi build-ul unui erou acum:</span>
-      <button id="pickMine">Alege eroul meu</button></div>
-  </div>
-
-  <!-- inamici -->
-  <div class="card">
-    <h2>Inamicii tăi <span class="muted" id="enemyHint" style="text-transform:none;letter-spacing:0;font-weight:400"></span></h2>
-    <div class="slots" id="slots"></div>
-    <div class="threats" id="threats"></div>
-  </div>
-
-  <!-- cumpara acum -->
-  <div class="card" id="buyCard">
-    <h2 id="buyTitle">Cumpără acum</h2>
-    <div id="buy"><span class="muted">Alege-ți eroul sau intră într-un meci.</span></div>
-    <div class="then" id="then"></div>
-    <div id="consumables" style="margin-top:12px"></div>
-  </div>
-
-  <div class="grid2">
-    <div class="card"><h2>Abilități <span class="muted" id="skillMeta" style="text-transform:none;letter-spacing:0;font-weight:400"></span></h2><div id="skills"><span class="muted">—</span></div></div>
-    <div class="card"><h2>Talente</h2><div id="talents"><span class="muted">—</span></div></div>
-  </div>
-
-  <!-- coach -->
-  <div class="card">
-    <h2>Întreabă coach-ul</h2>
-    <div class="chips">
-      <button data-q="">Ce fac acum?</button>
-      <button data-q="Cum joc împotriva eroilor inamici?">Cum joc contra lor?</button>
-      <button data-q="Pierd lane-ul. Ce ar trebui să schimb?">Pierd lane-ul</button>
-      <button data-q="Suntem în urmă la gold. Cum revenim?">Suntem în urmă</button>
-    </div>
-    <div class="row">
-      <input id="question" placeholder="Sau scrie o întrebare…" style="flex:1; min-width:200px">
-      <button class="primary" id="ask">Întreabă</button>
-    </div>
-    <div class="answer" id="answer"></div>
-    <div class="note" id="note"></div>
-  </div>
-
-  <!-- detalii -->
-  <div class="card">
-    <details id="phasesBox">
-      <summary>Build complet pe faze <span id="source"></span></summary>
-      <div id="phases"></div>
-    </details>
-  </div>
-
-  <div class="card">
-    <details>
-      <summary>Setări</summary>
-      <p class="small muted">
-        <b>Token STRATZ</b> (gratuit, <a href="https://stratz.com/api" target="_blank" style="color:var(--blue)">stratz.com/api</a>):
-        build-uri exact pentru poziția și MMR-ul tău. Fără el, folosesc OpenDota și ajustez după poziție.<br>
-        <b>Cheie Anthropic</b> (<a href="https://console.anthropic.com" target="_blank" style="color:var(--blue)">console.anthropic.com</a>, plătit per întrebare):
-        răspunsuri AI la orice întrebare. Fără ea, coach-ul dă sfaturi din reguli.
-      </p>
-      <div class="row">
-        <input id="stratz" type="password" placeholder="Token STRATZ" style="flex:1; min-width:200px">
-        <input id="anth" type="password" placeholder="Cheie API Anthropic" style="flex:1; min-width:200px">
-        <button id="saveKeys">Salvează</button>
+      <div class="name" id="heroName" title="Schimbă eroul">Dota Coach</div>
+      <div style="margin-top:4px; display:flex; gap:6px; align-items:center">
+        <span class="pill" id="live"><span class="dot"></span><span id="liveTxt">aștept Dota</span></span>
+        <span class="dim" id="roleTxt" style="font-size:12px"></span>
       </div>
-      <div class="small muted" id="keyStatus" style="margin-top:8px"></div>
-    </details>
+    </div>
+    <div style="display:flex" id="stats"></div>
+    <div class="inv" id="inv" hidden></div>
+    <div class="topright">
+      <select id="position" title="Poziția ta"></select>
+      <select id="bracket" title="MMR-ul tău"></select>
+      <button class="iconbtn" id="openSettings" title="Setări">⚙</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <!-- ===== stanga: inamici ===== -->
+    <section class="col">
+      <div class="panel grow">
+        <div class="ph"><h2>Inamici</h2><span class="sub" id="enemyCount">0/5</span></div>
+        <div class="scroll" id="enemies"></div>
+        <div id="consBox" hidden>
+          <div class="ph" style="margin:12px 0 6px"><h2>Consumabile utile</h2></div>
+          <div class="cons" id="cons"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== centru: ce cumpar ===== -->
+    <section class="col center">
+      <div class="panel" id="buyPanel">
+        <div class="ph"><h2 id="buyTitle">Cumpără acum</h2><span class="sub right" id="source"></span></div>
+        <div id="buy"></div>
+        <div class="then" id="then"></div>
+      </div>
+      <div class="panel grow">
+        <div class="ph"><h2>Build pe faze</h2><span class="sub">cele mai cumpărate item-e · ✓ = le ai</span></div>
+        <div class="scroll" id="phases"><div class="empty">—</div></div>
+      </div>
+    </section>
+
+    <!-- ===== dreapta: abilitati + coach ===== -->
+    <section class="col">
+      <div class="panel">
+        <div class="ph"><h2>Abilități</h2><span class="sub" id="skillMeta"></span></div>
+        <div id="skills"><div class="empty">—</div></div>
+        <div class="talents" id="talents"></div>
+      </div>
+      <div class="panel grow">
+        <div class="ph"><h2>Coach</h2><span class="sub right" id="aiState"></span></div>
+        <div class="chips">
+          <button data-q="">Ce fac acum?</button>
+          <button data-q="Cum joc împotriva eroilor inamici?">Contra lor?</button>
+          <button data-q="Pierd lane-ul. Ce ar trebui să schimb?">Pierd lane-ul</button>
+          <button data-q="Suntem în urmă la gold. Cum revenim?">Suntem în urmă</button>
+        </div>
+        <div class="askrow"><input id="question" placeholder="Întreabă orice…"><button class="primary" id="ask">→</button></div>
+        <div class="answer scroll" id="answer"><span class="dim">Apasă un buton de mai sus pentru un sfat.</span></div>
+        <div class="note" id="note"></div>
+      </div>
+    </section>
   </div>
 </div>
 
-<!-- alegere erou -->
-<div class="modal" id="modal">
+<!-- ===== alegere erou ===== -->
+<div class="modal" id="pickModal">
   <div class="box">
-    <div class="head"><input id="search" placeholder="Caută erou…" autocomplete="off"><button id="closeModal">Închide</button></div>
-    <div class="heroes" id="heroGrid"></div>
+    <div class="head"><input id="search" placeholder="Caută erou… (Enter = primul)" autocomplete="off"><button class="btn" data-close>Gata</button></div>
+    <div class="heroes scroll" id="heroGrid"></div>
+  </div>
+</div>
+
+<!-- ===== setari ===== -->
+<div class="modal" id="setModal">
+  <div class="box" style="max-width:520px">
+    <div class="head"><b style="flex:1">Setări</b><button class="btn" data-close>Închide</button></div>
+    <div class="settings">
+      <label><span>Token STRATZ (gratuit, <a href="https://stratz.com/api" target="_blank">stratz.com/api</a>) · build-uri exacte pe poziție și MMR</span>
+        <input id="stratz" type="password" placeholder="lasă gol ca să păstrezi tokenul actual"></label>
+      <label><span>Cheie API Anthropic (<a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>, plătit per întrebare) · întrebări libere pentru coach</span>
+        <input id="anth" type="password" placeholder="lasă gol ca să păstrezi cheia actuală"></label>
+      <div style="display:flex; gap:8px; align-items:center"><button class="primary" id="saveKeys">Salvează</button><span class="muted" id="saved"></span></div>
+      <div class="muted" id="keyStatus" style="font-size:12px"></div>
+    </div>
   </div>
 </div>
 
 <script>
-let heroes = [], byNpc = {}, enemies = [], configLoaded = false, pickMode = null, last = null;
+let heroes = [], byNpc = {}, imgOf = {}, enemies = [], configLoaded = false, pickMode = null, last = null;
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const img = (src, cls = "") => src ? `<img class="${cls}" src="${esc(src)}" alt="" onerror="this.classList.add('broken')">` : "";
-const fmt = s => s == null ? "" : (s < 0 ? "-" : "") + Math.floor(Math.abs(s)/60) + ":" + String(Math.abs(s)%60).padStart(2,"0");
+const img = (src, cls = "", title = "") => `<img class="${cls}" src="${esc(src || "")}" alt="" title="${esc(title)}" onerror="this.classList.add('broken')">`;
+const fmt = s => s == null ? "–" : (s < 0 ? "-" : "") + Math.floor(Math.abs(s)/60) + ":" + String(Math.abs(s)%60).padStart(2,"0");
 const post = (url, body) => fetch(url, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)}).then(r => r.json());
 
-/* ---------- alegere erou (inamici / eroul meu) ---------- */
-function openPicker(mode) {
-  pickMode = mode; $("search").value = ""; renderGrid(); $("modal").classList.add("open"); $("search").focus();
-}
-function closePicker() { $("modal").classList.remove("open"); }
+/* ---------- modale ---------- */
+const open = id => $(id).classList.add("open");
+const close = id => $(id).classList.remove("open");
+document.querySelectorAll(".modal").forEach(m => {
+  m.addEventListener("click", e => { if (e.target === m || e.target.hasAttribute("data-close")) close(m.id); });
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") document.querySelectorAll(".modal.open").forEach(m => close(m.id)); });
+
+function openPicker(mode) { pickMode = mode; $("search").value = ""; renderGrid(); open("pickModal"); setTimeout(() => $("search").focus(), 30); }
 function renderGrid() {
   const q = $("search").value.trim().toLowerCase();
-  const list = heroes.filter(h => !q || h.name.toLowerCase().includes(q));
-  $("heroGrid").innerHTML = list.map(h => {
-    const taken = pickMode === "enemy" && enemies.includes(h.npc);
-    return `<div class="hpick ${taken ? "taken" : ""}" data-npc="${esc(h.npc)}">${img(h.img)}${esc(h.name)}</div>`;
-  }).join("") || '<span class="muted">Niciun erou găsit</span>';
+  $("heroGrid").innerHTML = heroes.filter(h => !q || h.name.toLowerCase().includes(q)).map(h =>
+    `<div class="hp ${pickMode === "enemy" && enemies.includes(h.npc) ? "taken" : ""}" data-npc="${esc(h.npc)}">${img(h.img)}${esc(h.name)}</div>`
+  ).join("") || '<div class="empty">Niciun erou găsit</div>';
 }
 $("search").oninput = renderGrid;
-$("search").onkeydown = e => {
-  if (e.key === "Enter") { const first = $("heroGrid").querySelector(".hpick:not(.taken)"); if (first) first.click(); }
-  if (e.key === "Escape") closePicker();
-};
-$("closeModal").onclick = closePicker;
-$("modal").onclick = e => { if (e.target.id === "modal") closePicker(); };
+$("search").onkeydown = e => { if (e.key === "Enter") { const f = $("heroGrid").querySelector(".hp:not(.taken)"); if (f) f.click(); } };
 $("heroGrid").onclick = e => {
-  const el = e.target.closest(".hpick"); if (!el) return;
-  const npc = el.dataset.npc;
+  const el = e.target.closest(".hp"); if (!el) return;
   if (pickMode === "enemy") {
-    if (!enemies.includes(npc) && enemies.length < 5) enemies.push(npc);
+    if (!enemies.includes(el.dataset.npc) && enemies.length < 5) enemies.push(el.dataset.npc);
     post("/api/enemies", {enemies}).then(refresh);
-    if (enemies.length >= 5) closePicker(); else { $("search").value = ""; renderGrid(); $("search").focus(); }
-  } else {
-    post("/api/hero", {hero: npc}).then(refresh); closePicker();
-  }
-  renderSlots();
+    if (enemies.length >= 5) close("pickModal"); else { $("search").value = ""; renderGrid(); $("search").focus(); }
+  } else { post("/api/hero", {hero: el.dataset.npc}).then(refresh); close("pickModal"); }
+  renderEnemies(last && last.plan);
 };
-$("pickMine").onclick = () => openPicker("mine");
-$("heroName").onclick = () => { if (!last || !last.live) openPicker("mine"); };
-
-function renderSlots() {
-  let html = "";
-  for (let i = 0; i < 5; i++) {
-    const e = enemies[i];
-    html += e
-      ? `<div class="slot filled" data-rm="${esc(e)}"><div class="pic">${img((heroes.find(h => h.npc === e) || {}).img)}</div>${esc(byNpc[e] || e)}<span class="x">×</span></div>`
-      : `<div class="slot" data-add="1"><div class="pic">+</div>${i === enemies.length ? "adaugă" : ""}</div>`;
-  }
-  $("slots").innerHTML = html;
-  $("enemyHint").textContent = enemies.length ? "· apasă pe un inamic ca să-l scoți" : "· adaugă-i ca să adaptez build-ul la ei";
-}
-$("slots").onclick = e => {
-  const s = e.target.closest(".slot"); if (!s) return;
-  if (s.dataset.rm) { enemies = enemies.filter(x => x !== s.dataset.rm); renderSlots(); post("/api/enemies", {enemies}).then(refresh); }
-  else openPicker("enemy");
-};
+const changeHero = () => { if (!last || !last.live) openPicker("mine"); };
+$("heroName").onclick = changeHero; $("heroImg").onclick = changeHero;
 
 /* ---------- setari ---------- */
-$("position").onchange = $("bracket").onchange = () =>
-  post("/api/config", {position: $("position").value, bracket: $("bracket").value}).then(refresh);
+$("openSettings").onclick = () => { $("saved").textContent = ""; open("setModal"); };
+$("position").onchange = $("bracket").onchange = () => post("/api/config", {position: $("position").value, bracket: $("bracket").value}).then(refresh);
 $("saveKeys").onclick = () => post("/api/config", {stratz_token: $("stratz").value, anthropic_api_key: $("anth").value})
-  .then(() => { $("stratz").value = $("anth").value = ""; refresh(); });
+  .then(() => { $("stratz").value = $("anth").value = ""; $("saved").textContent = "Salvat ✓"; refresh(); });
 
 /* ---------- coach ---------- */
 async function ask(q) {
-  $("ask").disabled = true; $("answer").textContent = "Mă gândesc…"; $("note").textContent = "";
+  $("ask").disabled = true; $("answer").innerHTML = '<span class="dim">Mă gândesc…</span>'; $("note").textContent = "";
   try {
     const r = await post("/api/advice", {question: q});
     $("answer").textContent = r.text || ("⚠ " + (r.error || "Fără răspuns"));
-    $("note").textContent = r.local ? `Sfat din reguli (fără AI). ${r.note || ""}` : "";
+    $("note").textContent = r.local ? `Sfat din reguli. ${r.note || ""}` : "";
   } catch (e) { $("answer").textContent = "⚠ Nu pot contacta aplicația. Mai rulează DotaCoach?"; }
   $("ask").disabled = false;
 }
@@ -290,60 +333,115 @@ $("ask").onclick = () => ask($("question").value);
 $("question").onkeydown = e => { if (e.key === "Enter") ask($("question").value); };
 
 /* ---------- randare ---------- */
-function miniEl(it) {
-  return `<div class="mini">${img(it.img)}<div><div class="n">${esc(it.dname)} <span class="warn small">${it.cost || ""}</span></div>
-          <div class="reason">${esc(it.reason || "")}</div></div></div>`;
+function renderEnemies(plan) {
+  const threats = {};
+  ((plan && plan.threats) || []).forEach(t => threats[t.vs[0]] = t);
+  $("enemyCount").textContent = `${enemies.length}/5`;
+  let html = enemies.map(npc => {
+    const name = byNpc[npc] || npc, t = threats[name];
+    const cls = !t || !t.why ? "" : (t.covered.length ? "safe" : "threat");
+    const ans = !t ? "" : t.covered.length
+      ? `<span class="covered">✓ acoperit: ${esc(t.covered.join(", "))}</span>`
+      : t.answers.map(a => img(a.img, "", a.dname)).join("") + (t.answers.length ? `<span class="dim" style="font-size:11px">${esc(t.answers[0].dname)}</span>` : "");
+    return `<div class="enemy ${cls}">${img(imgOf[npc], "pic")}<div style="min-width:0">
+      <div class="en">${esc(name)}</div>
+      <div class="why">${esc(t && t.why ? t.why : (t ? "fără amenințare specială" : ""))}</div>
+      <div class="ans">${ans}</div></div><button class="rm" data-rm="${esc(npc)}" title="Scoate">×</button></div>`;
+  }).join("");
+  if (enemies.length < 5) html += `<button class="add" id="addEnemy">＋ ${enemies.length ? "Adaugă inamic" : "Adaugă inamicii ca să adaptez build-ul la ei"}</button>`;
+  $("enemies").innerHTML = html;
+  const add = $("addEnemy"); if (add) add.onclick = () => openPicker("enemy");
+  $("enemies").querySelectorAll("[data-rm]").forEach(b => b.onclick = () => {
+    enemies = enemies.filter(x => x !== b.dataset.rm); renderEnemies(plan); post("/api/enemies", {enemies}).then(refresh);
+  });
+  const cons = (plan && plan.consumables) || [];
+  $("consBox").hidden = !cons.length;
+  $("cons").innerHTML = cons.map(c => miniEl(c)).join("");
 }
 
-function renderPlan(s) {
+function miniEl(it, kind) {
+  return `<div class="mini" title="${esc(it.reason || "")}">${kind ? `<div class="k ${kind}"></div>` : ""}${img(it.img)}
+    <div class="t"><div class="n">${esc(it.dname)} <span class="c">${it.cost || ""}</span></div><div class="r">${esc(it.reason || "")}</div></div></div>`;
+}
+
+function renderBuy(s) {
   const p = s.plan;
   if (!p) return;
   if (p.mode === "start") {
     $("buyTitle").textContent = `Kit de start · ${p.kit_cost} / 600 gold`;
-    $("buy").innerHTML = `<div class="kit">${p.kit.map(miniEl).join("")}</div>` || "—";
-    $("then").innerHTML = "";
-  } else if (p.buy_now) {
-    const b = p.buy_now;
-    const have = (b.have_cost || 0) + (s.gold || 0), pct = b.cost ? Math.min(100, Math.round(100 * have / b.cost)) : 100;
-    const kind = b.kind === "counter" ? '<span class="tag counter">contra inamici</span>' : '<span class="tag build">build</span>';
-    let gold = "";
-    if (b.missing != null) gold = `<div class="bar"><div class="${b.affordable ? "full" : ""}" style="width:${pct}%"></div></div>
-        <div class="small ${b.affordable ? "ok" : "muted"}">${b.affordable ? "✓ Ai destul gold, cumpără-l acum!" : `Îți mai trebuie <b class="warn">${b.missing}</b> gold`}
-        ${b.have_parts && b.have_parts.length ? ` · ai deja: ${esc(b.have_parts.join(", "))}` : ""}</div>`;
-    $("buyTitle").textContent = "Cumpără acum";
-    $("buy").innerHTML = `<div class="buy">${img(b.img, "big" + (b.affordable ? " afford" : ""))}
-        <div style="flex:1;min-width:220px"><div class="name">${esc(b.dname)} <span class="warn small">${b.cost}</span></div>
-        <div class="reason">${kind}${esc(b.reason)}</div>${gold}</div></div>`;
-    $("then").innerHTML = p.after.length ? p.after.map(miniEl).join("") : "";
-  } else {
-    $("buy").innerHTML = '<span class="muted">Nu am date de build pentru acest erou (verifică internetul).</span>';
-    $("then").innerHTML = "";
+    $("buy").innerHTML = `<div class="kit">${p.kit.map(i => miniEl(i)).join("")}</div>`;
+    $("then").innerHTML = ""; return;
   }
-  $("consumables").innerHTML = p.consumables.length
-    ? `<div class="small muted" style="margin-bottom:6px">Consumabile utile:</div><div class="kit">${p.consumables.map(miniEl).join("")}</div>` : "";
-  $("threats").innerHTML = p.threats.map(t => `<div class="threat">${t.covered.length ? "✅" : "⚠️"} <b>${esc(t.vs.join(", "))}</b> ${esc(t.why)}
-      <span class="ans">→ ${t.covered.length ? "acoperit de " + esc(t.covered.join(", ")) : esc(t.answers.map(a => a.dname).join(" / ") || "joacă atent")}</span></div>`).join("");
+  $("buyTitle").textContent = "Cumpără acum";
+  const b = p.buy_now;
+  if (!b) { $("buy").innerHTML = '<div class="empty">Nu am date de build pentru acest erou (verifică internetul).</div>'; $("then").innerHTML = ""; return; }
+  const have = (b.have_cost || 0) + (s.gold || 0), pct = b.cost ? Math.min(100, Math.round(100 * have / b.cost)) : 100;
+  const kind = b.kind === "counter" ? '<span class="tag counter">contra inamici</span>' : '<span class="tag build">build</span>';
+  const gold = b.missing == null ? "" :
+    `<div class="goldbar"><div class="${b.affordable ? "full" : ""}" style="width:${pct}%"></div></div>
+     <div class="goldtxt">${b.affordable ? '<b class="ok">✓ Ai destul gold, cumpără-l!</b>' : `Îți mai trebuie <b class="gold">${b.missing}</b> gold`}
+     ${b.have_parts && b.have_parts.length ? `<span class="dim"> · ai deja ${esc(b.have_parts.join(", "))}</span>` : ""}</div>`;
+  $("buy").innerHTML = `<div class="buy">${img(b.img, "big" + (b.affordable ? " afford" : ""))}
+    <div style="min-width:0"><div><span class="nm">${esc(b.dname)}</span><span class="cost">${b.cost}</span></div>
+    <div class="why">${kind}${esc(b.reason)}</div>${gold}</div></div>`;
+  $("then").innerHTML = p.after.map(i => miniEl(i, i.kind)).join("");
+}
+
+function renderPhases(s) {
+  const labels = [["Start", "înainte de horn"], ["Early", "0–10 min"], ["Mid", "10–25 min"], ["Late", "25+ min"]];
+  $("phases").innerHTML = (s.phases || []).map((p, i) => `<div class="phase ${i === s.phase ? "now" : ""}">
+    <div class="lbl">${labels[i][0]}${i === s.phase ? " · acum" : ""}<small>${labels[i][1]}</small></div>
+    <div class="icons">${p.items.slice(0, 9).map(it => `<div class="ico ${it.owned ? "owned" : ""}" title="${esc(it.dname)} · ${it.cost} gold${it.winrate != null ? ` · ${it.winrate}% win` : ""}">
+      ${img(it.img)}${it.winrate != null ? `<span class="wr">${it.winrate}%</span>` : ""}</div>`).join("")}</div></div>`).join("")
+    || '<div class="empty">—</div>';
 }
 
 function renderSkills(sk) {
-  if (!sk) { $("skills").innerHTML = '<span class="muted">Nu am date de skill build.</span>'; $("talents").innerHTML = '<span class="muted">—</span>'; $("skillMeta").textContent = ""; return; }
-  $("skillMeta").textContent = `· din ${sk.matches} meciuri pro`;
-  const head = sk.next ? `<div class="nextskill">${img(sk.next.ability.img)}<div>${sk.next.now ? '<b class="warn">Crește acum:</b>' : '<span class="muted">La nivelul următor:</span>'} ${esc(sk.next.ability.dname)}</div></div>` : "";
-  $("skills").innerHTML = head + '<div class="skills">' + sk.order.map((a, i) => {
+  if (!sk) { $("skills").innerHTML = '<div class="empty">Nu am date de skill build.</div>'; $("talents").innerHTML = ""; $("skillMeta").textContent = ""; return; }
+  $("skillMeta").textContent = `din ${sk.matches} meciuri pro`;
+  const nx = sk.next ? `<div class="nextskill">${sk.next.ability.talent ? '<div class="star">★</div>' : img(sk.next.ability.img)}<div>
+      <div class="lab ${sk.next.now ? "gold" : "dim"}">${sk.next.now ? "Crește acum" : "La nivelul următor"}</div>
+      <div class="big">${esc(sk.next.ability.dname)}</div></div></div>` : "";
+  $("skills").innerHTML = nx + '<div class="skills">' + sk.order.map((a, i) => {
     const cls = ["sk", sk.spent != null && i < sk.spent ? "done" : "", sk.spent === i ? "next" : ""].join(" ");
-    const pic = a.talent ? '<div class="t">★</div>' : (a.img ? img(a.img) : '<div class="t">?</div>');
-    return `<div class="${cls}" title="Nivel ${i + 1}: ${esc(a.dname)}">${pic}${i + 1}</div>`;
+    return `<div class="${cls}" title="Nivel ${i + 1}: ${esc(a.dname)}">${a.talent ? '<div class="t">★</div>' : img(a.img)}${i + 1}</div>`;
   }).join("") + "</div>";
-  $("talents").innerHTML = (sk.talents || []).map(t => {
+  $("talents").innerHTML = (sk.talents || []).slice().reverse().map(t => {
     const best = Math.max(...t.options.map(o => o.pct)) || -1;
-    return `<div class="talent"><div class="lvl">${t.level}</div>` + t.options.map(o =>
-      `<div class="opt ${o.pct === best ? "best" : ""}">${esc(o.dname)}<br><span class="muted">${o.pct}% aleg${o.winrate != null ? ` · ${o.winrate}% win` : ""}</span></div>`).join("") + "</div>";
-  }).join("") || '<span class="muted">—</span>';
+    return `<div class="talent"><div class="lv">${t.level}</div>` + t.options.map(o =>
+      `<div class="o ${o.pct === best ? "best" : ""}">${esc(o.dname)}<div class="p">${o.pct}%${o.winrate != null ? ` · ${o.winrate}% win` : ""}</div></div>`).join("") + "</div>";
+  }).join("");
+}
+
+function renderTop(s) {
+  $("live").className = "pill" + (s.live ? " live" : "");
+  $("liveTxt").textContent = s.live ? "LIVE" : (s.ever_live ? "meci terminat" : "aștept Dota");
+  const st = (v, l) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`;
+  $("stats").innerHTML = s.live
+    ? st(fmt(s.clock), "timp") + st(`<span class="gold">${s.gold ?? "?"}</span>`, "gold") + st(s.level ?? "?", "nivel") + st((s.kda || []).join("/"), "kda") : "";
+  const owned = s.owned || [];
+  $("inv").hidden = !s.live;
+  $("inv").innerHTML = Array.from({length: 6}, (_, i) => owned[i] ? img(owned[i].img, "", owned[i].dname) : '<div class="e"></div>').join("");
+  if (s.plan) $("roleTxt").textContent = "· " + (s.plan.role === "support" ? "Support" : "Core") + (s.plan.role_auto ? " (ghicit)" : "");
+  if (s.hero) { $("heroName").textContent = s.hero.name; $("heroImg").src = s.hero.img; $("heroImg").hidden = false; }
+  else { $("heroName").textContent = "Dota Coach"; $("heroImg").hidden = true; $("roleTxt").textContent = ""; }
+}
+
+function renderSetup(s) {
+  $("buyTitle").textContent = "Pornire";
+  $("buy").innerHTML = `<div class="setup">
+    <h3>${s.ever_live ? "Aștept următorul meci…" : "Hai să te conectăm la Dota"}</h3>
+    <ol><li>Steam → Dota 2 → Properties → Launch Options: <code>-gamestateintegration</code></li>
+        <li>Pornește Dota (repornește-l dacă era deschis) și intră într-un meci sau în demo hero</li>
+        <li>Pagina se actualizează singură când jocul trimite date</li></ol>
+    <div><button class="btn" id="pickMine">Sau alege un erou ca să-i vezi build-ul</button></div></div>`;
+  $("then").innerHTML = ""; $("phases").innerHTML = '<div class="empty">—</div>';
+  $("pickMine").onclick = () => openPicker("mine");
 }
 
 async function refresh() {
   let s;
-  try { s = await (await fetch("/api/state")).json(); } catch (e) { $("live").textContent = "aplicația nu răspunde"; return; }
+  try { s = await (await fetch("/api/state")).json(); } catch (e) { $("liveTxt").textContent = "aplicația nu răspunde"; return; }
   last = s;
   if (!configLoaded) {
     $("position").innerHTML = Object.entries(s.positions).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
@@ -351,35 +449,26 @@ async function refresh() {
     $("position").value = s.config.position; $("bracket").value = s.config.bracket; configLoaded = true;
   }
   $("position").classList.toggle("attention", !s.config.position);
-  $("position").title = s.config.position ? "Poziția ta" : "Alege-ți poziția ca să primești build-ul potrivit!";
+  $("position").title = s.config.position ? "Poziția ta" : "Alege-ți poziția pentru build-ul potrivit!";
   $("bracket").disabled = !s.config.has_stratz;
-  $("bracket").title = s.config.has_stratz ? "MMR-ul tău" : "Filtrul pe MMR are nevoie de token STRATZ (Setări)";
-  $("keyStatus").innerHTML = `STRATZ: ${s.config.has_stratz ? '<span class="ok">configurat ✓</span>' : "lipsă"} · Coach AI: ${s.config.ai ? '<span class="ok">activ ✓</span>' : "lipsă cheie (merg doar sfaturile din reguli)"}`;
+  $("bracket").title = s.config.has_stratz ? "MMR-ul tău" : "Filtrul pe MMR are nevoie de token STRATZ (⚙ Setări)";
+  $("keyStatus").innerHTML = `STRATZ: ${s.config.has_stratz ? '<span class="ok">configurat ✓</span>' : "lipsă"} · Coach AI: ${s.config.ai ? '<span class="ok">activ ✓</span>' : "fără cheie (doar sfaturi din reguli)"}`;
+  $("aiState").textContent = s.config.ai ? "AI activ" : "sfaturi din reguli";
+  if (JSON.stringify(s.enemies) !== JSON.stringify(enemies)) enemies = s.enemies;
 
-  $("live").textContent = s.live ? "LIVE din Dota" : (s.ever_live ? "meci terminat / Dota închis" : "aștept Dota");
-  $("live").className = "pill" + (s.live ? " live" : "");
-  $("setup").hidden = s.ever_live;
-  if (JSON.stringify(s.enemies) !== JSON.stringify(enemies)) { enemies = s.enemies; renderSlots(); }
-
-  if (!s.hero) { $("heroName").textContent = "Dota Coach"; $("heroImg").hidden = true; $("stats").innerHTML = ""; return; }
-  $("heroName").textContent = s.hero.name; $("heroName").style.cursor = s.live ? "" : "pointer";
-  $("heroImg").src = s.hero.img; $("heroImg").hidden = false;
-  const role = s.plan ? (s.plan.role === "support" ? "Support" : "Core") + (s.plan.role_auto ? " (ghicit - alege poziția)" : "") : "";
-  $("stats").innerHTML = (s.live ? `<span>⏱ <b>${fmt(s.clock)}</b></span><span>💰 <b>${s.gold ?? "?"}</b></span><span>Nivel <b>${s.level ?? "?"}</b></span><span>KDA <b>${(s.kda || []).join("/")}</b></span>` : "")
-    + (role ? `<span>Rol: <b>${esc(role)}</b></span>` : "");
-
-  renderPlan(s);
+  renderTop(s);
+  renderEnemies(s.plan);
+  if (!s.hero) { renderSetup(s); renderSkills(null); $("source").textContent = ""; return; }
+  renderBuy(s);
+  renderPhases(s);
   renderSkills(s.skills);
-  const posNote = s.config.position && s.source !== "STRATZ" ? " · poziția e aproximată (pentru precizie: token STRATZ)" : "";
-  $("source").textContent = `· sursă: ${s.source}${posNote}`;
-  $("phases").innerHTML = (s.phases || []).map((p, i) =>
-    `<div class="phase ${i === s.phase ? "now" : ""}"><h3>${p.label}${i === s.phase ? " · acum" : ""}</h3>
-     <div class="items">${p.items.map(it => `<div class="item ${it.owned ? "owned" : ""}">${img(it.img)}${esc(it.dname)}${it.winrate != null ? `<br><span class="ok">${it.winrate}%</span>` : ""}</div>`).join("")}</div></div>`).join("");
+  const approx = s.config.position && s.source !== "STRATZ" ? " · poziție aproximată" : "";
+  $("source").textContent = `sursă: ${s.source.split(" ·")[0]}${approx}`;
 }
 
 fetch("/api/heroes").then(r => r.json()).then(list => {
-  heroes = list; list.forEach(h => byNpc[h.npc] = h.name);
-  renderSlots(); refresh(); setInterval(refresh, 2000);
+  heroes = list; list.forEach(h => { byNpc[h.npc] = h.name; imgOf[h.npc] = h.img; });
+  refresh(); setInterval(refresh, 2000);
 });
 </script>
 </body>
