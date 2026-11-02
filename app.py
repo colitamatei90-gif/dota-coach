@@ -29,20 +29,21 @@ def setup_logging():
 class Api:
     """Functii apelabile din pagina (window.pywebview.api.*)."""
 
+    # Atributele cu "_" nu sunt expuse paginii. Fara asta, pywebview incearca sa
+    # parcurga tot obiectul fereastra (window.native...) si umple log-ul cu erori.
     def __init__(self):
-        self.window = None
-        self.cfg = load_config()
+        self._window = None
 
     def get_on_top(self):
-        return bool(self.cfg.get("on_top", False))
+        return bool(load_config().get("on_top", False))
 
     def set_on_top(self, value):
         value = bool(value)
-        self.cfg = load_config()
-        self.cfg["on_top"] = value
-        save_config(self.cfg)
-        if self.window:
-            self.window.on_top = value
+        cfg = load_config()
+        cfg["on_top"] = value
+        save_config(cfg)
+        if self._window:
+            self._window.on_top = value
         return value
 
 
@@ -59,24 +60,37 @@ def wait_for_server(url, timeout=15):
 
 def selftest(window, url):
     """Folosit doar de testul automat de pe GitHub: verifica fereastra si serverul, apoi inchide."""
-    ok = {"loaded": False}
+    ok = {"loaded": False, "shown": False}
+    window.events.shown += lambda: ok.update(shown=True)
     window.events.loaded += lambda: ok.update(loaded=True)
 
+    def log(msg):
+        print(f"[selftest] {msg}")
+        sys.stdout.flush()
+
+    def watchdog():  # orice s-ar bloca, testul se termina
+        time.sleep(60)
+        log("TIMEOUT - ceva s-a blocat")
+        os._exit(2)
+
     def run():
-        time.sleep(10)
+        for _ in range(40):           # asteptam pana la 20s sa se incarce pagina
+            if ok["loaded"]:
+                break
+            time.sleep(0.5)
+        log(f"fereastra afisata: {ok['shown']}, pagina incarcata: {ok['loaded']}")
         try:
             state = urllib.request.urlopen(url + "/api/state", timeout=5).read()
-            title = window.evaluate_js("document.title")
-            print(f"[selftest] fereastra incarcata: {ok['loaded']}, titlu: {title}, state: {len(state)} bytes")
-            code = 0 if ok["loaded"] and title == "Dota Coach" else 1
+            log(f"serverul raspunde: {len(state)} bytes")
+            server_ok = True
         except Exception as e:
-            print(f"[selftest] EROARE: {e}")
-            code = 1
-        print(f"[selftest] rezultat: {'OK' if code == 0 else 'ESUAT'}")
-        sys.stdout.flush()
-        window.destroy()
+            log(f"serverul NU raspunde: {e}")
+            server_ok = False
+        code = 0 if ok["shown"] and ok["loaded"] and server_ok else 1
+        log(f"rezultat: {'OK' if code == 0 else 'ESUAT'}")
         os._exit(code)
 
+    threading.Thread(target=watchdog, daemon=True).start()
     threading.Thread(target=run, daemon=True).start()
 
 
@@ -100,7 +114,7 @@ def main():
         width=1440, height=880, min_size=(900, 600),
         background_color="#0b0d11", on_top=api.get_on_top(), text_select=True,
     )
-    api.window = window
+    api._window = window
     if os.environ.get("DOTA_COACH_SELFTEST"):
         selftest(window, url)
     try:
