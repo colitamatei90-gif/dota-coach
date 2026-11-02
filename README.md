@@ -53,16 +53,21 @@ Din pagină (secțiunea **Setări**) sau din `config.json`:
 | Cheie | Pentru ce | De unde |
 |---|---|---|
 | `stratz_token` | build-uri pe poziție + MMR | gratuit, https://stratz.com/api |
-| `anthropic_api_key` | Coach AI | https://console.anthropic.com (plătit per utilizare) |
-| `ai_model` | modelul AI | implicit `claude-opus-5-5` |
+| `gemini_api_key` | Coach AI cu Gemini (**gratuit**, cu limită zilnică) | https://aistudio.google.com/apikey |
+| `ai_provider` | cine răspunde: `gemini` sau `anthropic` | se alege și din ⚙ Setări |
+| `gemini_model` | model Gemini anume | gol = ales automat (cel mai nou Flash) |
+| `anthropic_api_key` | Coach AI cu Claude (plătit per întrebare) | https://console.anthropic.com |
+| `ai_model` | modelul Claude | implicit `claude-opus-5-5` |
 | `position`, `bracket` | filtrele implicite | se aleg și din pagină |
 
 Fără token STRATZ, item-ele vin de pe OpenDota (meciuri recente, toate pozițiile amestecate). Aplicația
 le ajustează apoi după poziția aleasă (ex: la support scoate item-ele de carry). Cu STRATZ, datele sunt exact pentru poziția și MMR-ul tău.
 Skill build-ul și talentele vin de pe OpenDota (meciuri pro din ultimele 60 de zile).
 
-Coach AI se apelează doar când apeși butonul (un apel ≈ câțiva cenți). Dacă un model refuză
-cererea, API-ul trece automat pe alt model (fallback activat).
+Coach AI se apelează doar când apeși un buton. Cu **Gemini** e gratuit: aplicația alege singură cel mai
+nou model Flash disponibil pe cheia ta și, dacă ai atins limita gratuită, trece pe altul (de ex. Flash-Lite).
+Pe nivelul gratuit, Google poate folosi întrebările ca să-și îmbunătățească modelele. Cu **Claude**, un apel
+costă câțiva cenți; dacă modelul refuză cererea, API-ul trece automat pe alt model (fallback activat).
 
 **Atenție:** serverul ascultă în rețeaua locală (ca să meargă pe telefon). Oricine e pe același
 Wi-Fi poate deschide pagina și folosi Coach AI cu cheia ta. Pe o rețea publică, pune

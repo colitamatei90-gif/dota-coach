@@ -16,6 +16,9 @@ os.makedirs(CACHE_DIR, exist_ok=True)
 DEFAULT_CONFIG = {
     "port": 3000,
     "stratz_token": "",          # gratuit de pe https://stratz.com/api
+    "ai_provider": "",           # "gemini" (gratuit) sau "anthropic"; gol = automat
+    "gemini_api_key": "",        # gratuit de pe https://aistudio.google.com/apikey
+    "gemini_model": "",          # gol = aleg automat cel mai bun model Flash disponibil
     "anthropic_api_key": "",     # sau variabila de mediu ANTHROPIC_API_KEY
     "ai_model": "claude-opus-5-5",
     "position": "",              # "", POSITION_1 ... POSITION_5

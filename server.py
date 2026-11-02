@@ -101,7 +101,9 @@ def recommend():
     ai_ok, ai_why = ai.available(CFG)
     out = {"live": live, "ever_live": state["gsi_time"] > 0, "hero": None, "enemies": enemies,
            "config": {"position": CFG.get("position", ""), "bracket": CFG.get("bracket", ""),
-                      "has_stratz": bool(CFG.get("stratz_token")), "ai": ai_ok, "ai_why": ai_why},
+                      "has_stratz": bool(CFG.get("stratz_token")), "ai": ai_ok, "ai_why": ai_why,
+                      "ai_provider": ai.provider(CFG), "ai_name": ai.PROVIDER_NAMES[ai.provider(CFG)],
+                      "has_gemini": bool(CFG.get("gemini_api_key")), "has_anthropic": bool(CFG.get("anthropic_api_key"))},
            "positions": POSITIONS, "brackets": BRACKETS}
     hero = P.Constants.heroes_by_npc.get(hero_npc)
     if not hero:
@@ -245,7 +247,9 @@ class Handler(BaseHTTPRequestHandler):
                 CFG["position"] = data.get("position", "")
             if data.get("bracket", "") in BRACKETS:
                 CFG["bracket"] = data.get("bracket", "")
-            for key in ("stratz_token", "anthropic_api_key"):
+            if data.get("ai_provider") in ai.PROVIDER_NAMES:
+                CFG["ai_provider"] = data["ai_provider"]
+            for key in ("stratz_token", "anthropic_api_key", "gemini_api_key"):
                 if data.get(key):            # gol = nu schimba
                     CFG[key] = data[key].strip()
             save_config(CFG)

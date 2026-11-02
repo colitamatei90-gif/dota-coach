@@ -161,6 +161,7 @@
   .hp.taken { opacity:.2; pointer-events:none; }
   .settings { padding:16px; display:flex; flex-direction:column; gap:12px; }
   .settings label { font-size:12px; color:var(--muted); display:flex; flex-direction:column; gap:4px; }
+  .settings select { width:100%; }
   .settings input { background:var(--bg); border:1px solid var(--line2); border-radius:8px; padding:8px 10px; }
   .settings a { color:var(--blue); }
 
@@ -269,7 +270,15 @@
     <div class="settings">
       <label><span>Token STRATZ (gratuit, <a href="https://stratz.com/api" target="_blank">stratz.com/api</a>) · build-uri exacte pe poziție și MMR</span>
         <input id="stratz" type="password" placeholder="lasă gol ca să păstrezi tokenul actual"></label>
-      <label><span>Cheie API Anthropic (<a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>, plătit per întrebare) · întrebări libere pentru coach</span>
+      <label><span>Coach AI · cine răspunde la întrebări</span>
+        <select id="provider">
+          <option value="gemini">Gemini (Google) · gratuit, cu limită zilnică</option>
+          <option value="anthropic">Claude (Anthropic) · plătit per întrebare</option>
+        </select></label>
+      <label id="gemBox"><span>Cheie Gemini · o iei gratuit din <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>
+        (te loghezi cu contul Google → „Create API key” → copiezi cheia)</span>
+        <input id="gem" type="password" placeholder="lasă gol ca să păstrezi cheia actuală"></label>
+      <label id="anthBox"><span>Cheie API Anthropic (<a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>)</span>
         <input id="anth" type="password" placeholder="lasă gol ca să păstrezi cheia actuală"></label>
       <div style="display:flex; gap:8px; align-items:center"><button class="primary" id="saveKeys">Salvează</button><span class="muted" id="saved"></span></div>
       <div class="muted" id="keyStatus" style="font-size:12px"></div>
@@ -315,10 +324,17 @@ const changeHero = () => { if (!last || !last.live) openPicker("mine"); };
 $("heroName").onclick = changeHero; $("heroImg").onclick = changeHero;
 
 /* ---------- setari ---------- */
-$("openSettings").onclick = () => { $("saved").textContent = ""; open("setModal"); };
+$("openSettings").onclick = () => {
+  $("saved").textContent = "";
+  if (last) $("provider").value = last.config.ai_provider;
+  showProvider(); open("setModal");
+};
 $("position").onchange = $("bracket").onchange = () => post("/api/config", {position: $("position").value, bracket: $("bracket").value}).then(refresh);
-$("saveKeys").onclick = () => post("/api/config", {stratz_token: $("stratz").value, anthropic_api_key: $("anth").value})
-  .then(() => { $("stratz").value = $("anth").value = ""; $("saved").textContent = "Salvat ✓"; refresh(); });
+function showProvider() { const g = $("provider").value === "gemini"; $("gemBox").hidden = !g; $("anthBox").hidden = g; }
+$("provider").onchange = showProvider;
+$("saveKeys").onclick = () => post("/api/config", {stratz_token: $("stratz").value, gemini_api_key: $("gem").value,
+    anthropic_api_key: $("anth").value, ai_provider: $("provider").value})
+  .then(() => { $("stratz").value = $("gem").value = $("anth").value = ""; $("saved").textContent = "Salvat ✓"; refresh(); });
 
 /* ---------- coach ---------- */
 async function ask(q) {
@@ -326,7 +342,7 @@ async function ask(q) {
   try {
     const r = await post("/api/advice", {question: q});
     $("answer").textContent = r.text || ("⚠ " + (r.error || "Fără răspuns"));
-    $("note").textContent = r.local ? `Sfat din reguli. ${r.note || ""}` : "";
+    $("note").textContent = r.local ? `Sfat din reguli. ${r.note || ""}` : (r.model ? `Răspuns de ${r.model}` : "");
   } catch (e) { $("answer").textContent = "⚠ Nu pot contacta aplicația. Mai rulează DotaCoach?"; }
   $("ask").disabled = false;
 }
@@ -454,8 +470,10 @@ async function refresh() {
   $("position").title = s.config.position ? "Poziția ta" : "Alege-ți poziția pentru build-ul potrivit!";
   $("bracket").disabled = !s.config.has_stratz;
   $("bracket").title = s.config.has_stratz ? "MMR-ul tău" : "Filtrul pe MMR are nevoie de token STRATZ (⚙ Setări)";
-  $("keyStatus").innerHTML = `STRATZ: ${s.config.has_stratz ? '<span class="ok">configurat ✓</span>' : "lipsă"} · Coach AI: ${s.config.ai ? '<span class="ok">activ ✓</span>' : "fără cheie (doar sfaturi din reguli)"}`;
-  $("aiState").textContent = s.config.ai ? "AI activ" : "sfaturi din reguli";
+  const ck = v => v ? '<span class="ok">salvată ✓</span>' : "lipsă";
+  $("keyStatus").innerHTML = `STRATZ: ${s.config.has_stratz ? '<span class="ok">configurat ✓</span>' : "lipsă"} · Gemini: ${ck(s.config.has_gemini)} · Claude: ${ck(s.config.has_anthropic)}<br>
+    Coach AI: ${s.config.ai ? `<span class="ok">activ cu ${esc(s.config.ai_name)} ✓</span>` : esc(s.config.ai_why)}`;
+  $("aiState").textContent = s.config.ai ? `AI: ${s.config.ai_name}` : "sfaturi din reguli";
   if (JSON.stringify(s.enemies) !== JSON.stringify(enemies)) enemies = s.enemies;
 
   renderTop(s);
