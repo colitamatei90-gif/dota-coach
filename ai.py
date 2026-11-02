@@ -22,9 +22,9 @@ def available(cfg):
     try:
         import anthropic  # noqa: F401
     except ImportError:
-        return False, "Instaleaza pachetul: pip install anthropic"
+        return False, "Pentru intrebari libere instaleaza pachetul: pip install anthropic"
     if not (cfg.get("anthropic_api_key") or os.environ.get("ANTHROPIC_API_KEY")):
-        return False, "Lipseste cheia API (config.json -> anthropic_api_key)"
+        return False, "Pentru intrebari libere adauga o cheie API Anthropic (Setari)"
     return True, ""
 
 
@@ -56,6 +56,10 @@ def advise(cfg, context, question=""):
         return {"error": f"Eroare API ({e.status_code}): {e.message}"}
     except anthropic.APIConnectionError:
         return {"error": "Nu ma pot conecta la API (internet?)"}
+    except Exception as e:  # orice altceva: aratam motivul in loc sa pice cererea
+        import traceback
+        traceback.print_exc()
+        return {"error": f"Eroare neasteptata: {type(e).__name__}: {e}"}
 
     if resp.stop_reason == "refusal":
         return {"error": "Modelul a refuzat cererea"}

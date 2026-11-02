@@ -1,12 +1,13 @@
 # Dota Coach
 
-Aplicație care rulează lângă Dota 2 și îți arată, live:
-- **următorul item** de cumpărat (marcat cu verde dacă îți permiți acum), adaptat la ce ai deja;
-- **contra-item-e** în funcție de eroii inamici;
-- **skill build-ul** din meciurile pro și **ce abilitate să crești acum**;
-- **talentele** cele mai alese, cu winrate;
-- build-uri filtrate pe **poziție și MMR** (cu STRATZ);
-- **Coach AI**: sfaturi în limbaj natural despre meciul tău (cu Claude).
+Aplicație care rulează lângă Dota 2 și îți spune, live, **ce să cumperi acum și de ce**:
+- **„Cumpără acum”**: un singur item clar, cu motivul și câți bani îți mai trebuie. Ține cont de ce ai deja
+  (inclusiv componente), de poziția ta și de inamici. Recomandă un singur fel de boots;
+- **inamicii**: îi alegi din grila de portrete. Pentru fiecare îți spune ce problemă îți face
+  (evasion, invizibil, burst magic…) și cu ce îi contrezi. Contra-item-ele intră direct în build;
+- **poziția**: Pos 1-5 schimbă recomandările (carry, mid, offlane, support);
+- **abilități și talente**: ce abilitate crești acum și ce talente aleg jucătorii pro;
+- **coach**: răspunde mereu cu un sfat din reguli. Cu o cheie API Anthropic răspunde la orice întrebare (Claude).
 
 E sigur: folosește Game State Integration, sistemul oficial Valve. Nu citește memoria jocului
 și nu desenează peste joc.
@@ -47,7 +48,8 @@ Din pagină (secțiunea **Setări**) sau din `config.json`:
 | `ai_model` | modelul AI | implicit `claude-opus-5-5` |
 | `position`, `bracket` | filtrele implicite | se aleg și din pagină |
 
-Fără token STRATZ, item-ele vin de pe OpenDota (toate pozițiile, meciuri recente).
+Fără token STRATZ, item-ele vin de pe OpenDota (meciuri recente, toate pozițiile amestecate). Aplicația
+le ajustează apoi după poziția aleasă (ex: la support scoate item-ele de carry). Cu STRATZ, datele sunt exact pentru poziția și MMR-ul tău.
 Skill build-ul și talentele vin de pe OpenDota (meciuri pro din ultimele 60 de zile).
 
 Coach AI se apelează doar când apeși butonul (un apel ≈ câțiva cenți). Dacă un model refuză
@@ -66,7 +68,8 @@ python simulate.py npc_dota_hero_juggernaut
 
 ## Fișiere
 
-- `server.py`: serverul, logica de recomandare și contra-item-ele
+- `server.py`: serverul și starea meciului
+- `coach.py`: motorul de recomandare (plan de item-e, poziție, contra-item-e, sfaturi din reguli)
 - `providers.py`: OpenDota + STRATZ (cache în `cache/`)
 - `ai.py`: Coach AI
 - `setup_gsi.py`: găsește Dota și instalează config-ul GSI
